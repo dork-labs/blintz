@@ -1,0 +1,62 @@
+{
+  "name": "@blintz/comments",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Google-Docs-style comments for the Blintz editor (planned; not yet released).",
+  "keywords": [
+    "blintz",
+    "comments",
+    "annotations",
+    "markdown",
+    "editor",
+    "prosemirror",
+    "milkdown"
+  ],
+  "license": "MIT",
+  "author": "Dork Labs",
+  "homepage": "https://github.com/dork-labs/blintz/tree/main/packages/comments#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dork-labs/blintz.git",
+    "directory": "packages/comments"
+  },
+  "bugs": {
+    "url": "https://github.com/dork-labs/blintz/issues"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./styles.css": "./dist/comments.css"
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "sideEffects": [
+    "*.css"
+  ],
+  "scripts": {
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "blintz": ">=0.1.0",
+    "react": ">=18",
+    "react-dom": ">=18"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "typescript": "^5.9.0",
+    "vite": "^7.0.0",
+    "vite-plugin-dts": "^4.5.4"
+  }
+}
