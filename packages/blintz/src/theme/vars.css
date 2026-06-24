@@ -1,0 +1,143 @@
+/*
+ * Crepe theme variables (the `--crepe-*` namespace its feature CSS keys off of),
+ * copied from `crepe/src/theme/nord/style.css`. Scoped to `.milkdown` exactly as
+ * Crepe scopes them — the Milkdown editor root carries that class.
+ */
+.milkdown {
+  --crepe-color-background: #fdfcff;
+  --crepe-color-on-background: #1b1c1d;
+  --crepe-color-surface: #f8f9ff;
+  --crepe-color-surface-low: #f2f3fa;
+  --crepe-color-on-surface: #191c20;
+  --crepe-color-on-surface-variant: #43474e;
+  --crepe-color-outline: #73777f;
+  --crepe-color-primary: #37618e;
+  --crepe-color-secondary: #d7e3f8;
+  --crepe-color-on-secondary: #101c2b;
+  --crepe-color-inverse: #2e3135;
+  --crepe-color-on-inverse: #eff0f7;
+  --crepe-color-inline-code: #ba1a1a;
+  --crepe-color-error: #ba1a1a;
+  --crepe-color-hover: #eceef4;
+  --crepe-color-selected: #e1e2e8;
+  --crepe-color-inline-area: #d8dae0;
+
+  --crepe-font-title: Rubik, Cambria, "Times New Roman", Times, serif;
+  --crepe-font-default: Inter, Arial, Helvetica, sans-serif;
+  --crepe-font-code:
+    "JetBrains Mono", Menlo, Monaco, "Courier New", Courier, monospace;
+
+  --crepe-shadow-1:
+    0px 1px 3px 1px rgba(0, 0, 0, 0.15), 0px 1px 2px 0px rgba(0, 0, 0, 0.3);
+  --crepe-shadow-2:
+    0px 2px 6px 2px rgba(0, 0, 0, 0.15), 0px 1px 2px 0px rgba(0, 0, 0, 0.3);
+}
+
+/*
+ * ---------------------------------------------------------------------------
+ * DARK THEME — `--crepe-*` overrides, values copied verbatim from Crepe's
+ * `crepe/src/theme/nord-dark/style.css`. Scoped to `.milkdown` exactly like the
+ * light tokens above, so the same feature CSS keys off them with no other change.
+ *
+ * ACTIVATION CONTRACT — dark mode turns on when EITHER signal is present:
+ *
+ *   (a) OS preference — `@media (prefers-color-scheme: dark)`, automatic; or
+ *   (b) Explicit opt-in — a `.dark` class OR a `[data-theme="dark"]` attribute on
+ *       ANY ancestor of `.milkdown` (e.g. on <html>, <body>, or a wrapper div):
+ *
+ *         <html class="dark">              … or …  <html data-theme="dark">
+ *         <div  class="dark"><Editor/></div>  …  <div data-theme="dark"><Editor/></div>
+ *
+ * Light is the DEFAULT — with no signal present, the light tokens above win.
+ * The explicit opt-in (b) is NOT gated behind the media query, so a consuming
+ * app's manual "force dark" toggle works even when the OS is in light mode.
+ * (Conversely, a consumer wanting to force LIGHT despite a dark OS should simply
+ * not emit either signal — and can scope its own `[data-theme="light"]` reset if
+ * it overrides an inherited `.dark`.)
+ *
+ * Single source of color literals: the dark palette is declared once as
+ * `--crepe-dark-*` aliases on `.milkdown`; both activation paths below merely
+ * remap the live `--crepe-*` tokens onto those aliases (no duplicated hex values).
+ * ---------------------------------------------------------------------------
+ */
+.milkdown {
+  --crepe-dark-color-background: #1b1c1d;
+  --crepe-dark-color-on-background: #f8f9ff;
+  --crepe-dark-color-surface: #111418;
+  --crepe-dark-color-surface-low: #191c20;
+  --crepe-dark-color-on-surface: #e1e2e8;
+  --crepe-dark-color-on-surface-variant: #c3c6cf;
+  --crepe-dark-color-outline: #8d9199;
+  --crepe-dark-color-primary: #a1c9fd;
+  --crepe-dark-color-secondary: #3c4858;
+  --crepe-dark-color-on-secondary: #d7e3f8;
+  --crepe-dark-color-inverse: #e1e2e8;
+  --crepe-dark-color-on-inverse: #2e3135;
+  --crepe-dark-color-inline-code: #ffb4ab;
+  --crepe-dark-color-error: #ffb4ab;
+  --crepe-dark-color-hover: #1d2024;
+  --crepe-dark-color-selected: #32353a;
+  --crepe-dark-color-inline-area: #111418;
+
+  --crepe-dark-shadow-1:
+    0px 1px 2px 0px rgba(255, 255, 255, 0.3),
+    0px 1px 3px 1px rgba(255, 255, 255, 0.15);
+  --crepe-dark-shadow-2:
+    0px 1px 2px 0px rgba(255, 255, 255, 0.3),
+    0px 2px 6px 2px rgba(255, 255, 255, 0.15);
+}
+
+/* The remap that activates dark — shared by both paths, no literal duplication. */
+@media (prefers-color-scheme: dark) {
+  .milkdown {
+    --crepe-color-background: var(--crepe-dark-color-background);
+    --crepe-color-on-background: var(--crepe-dark-color-on-background);
+    --crepe-color-surface: var(--crepe-dark-color-surface);
+    --crepe-color-surface-low: var(--crepe-dark-color-surface-low);
+    --crepe-color-on-surface: var(--crepe-dark-color-on-surface);
+    --crepe-color-on-surface-variant: var(--crepe-dark-color-on-surface-variant);
+    --crepe-color-outline: var(--crepe-dark-color-outline);
+    --crepe-color-primary: var(--crepe-dark-color-primary);
+    --crepe-color-secondary: var(--crepe-dark-color-secondary);
+    --crepe-color-on-secondary: var(--crepe-dark-color-on-secondary);
+    --crepe-color-inverse: var(--crepe-dark-color-inverse);
+    --crepe-color-on-inverse: var(--crepe-dark-color-on-inverse);
+    --crepe-color-inline-code: var(--crepe-dark-color-inline-code);
+    --crepe-color-error: var(--crepe-dark-color-error);
+    --crepe-color-hover: var(--crepe-dark-color-hover);
+    --crepe-color-selected: var(--crepe-dark-color-selected);
+    --crepe-color-inline-area: var(--crepe-dark-color-inline-area);
+
+    --crepe-shadow-1: var(--crepe-dark-shadow-1);
+    --crepe-shadow-2: var(--crepe-dark-shadow-2);
+  }
+}
+
+/*
+ * Explicit opt-in — NOT inside the media query, so it forces dark regardless of
+ * OS preference. `:where(...)` keeps the ancestor part at zero specificity, so
+ * the resulting selector specificity equals the bare `.milkdown` light block —
+ * source order then makes this (later) win when an opt-in signal is present.
+ */
+:where(.dark, [data-theme="dark"]) .milkdown {
+  --crepe-color-background: var(--crepe-dark-color-background);
+  --crepe-color-on-background: var(--crepe-dark-color-on-background);
+  --crepe-color-surface: var(--crepe-dark-color-surface);
+  --crepe-color-surface-low: var(--crepe-dark-color-surface-low);
+  --crepe-color-on-surface: var(--crepe-dark-color-on-surface);
+  --crepe-color-on-surface-variant: var(--crepe-dark-color-on-surface-variant);
+  --crepe-color-outline: var(--crepe-dark-color-outline);
+  --crepe-color-primary: var(--crepe-dark-color-primary);
+  --crepe-color-secondary: var(--crepe-dark-color-secondary);
+  --crepe-color-on-secondary: var(--crepe-dark-color-on-secondary);
+  --crepe-color-inverse: var(--crepe-dark-color-inverse);
+  --crepe-color-on-inverse: var(--crepe-dark-color-on-inverse);
+  --crepe-color-inline-code: var(--crepe-dark-color-inline-code);
+  --crepe-color-error: var(--crepe-dark-color-error);
+  --crepe-color-hover: var(--crepe-dark-color-hover);
+  --crepe-color-selected: var(--crepe-dark-color-selected);
+  --crepe-color-inline-area: var(--crepe-dark-color-inline-area);
+
+  --crepe-shadow-1: var(--crepe-dark-shadow-1);
+  --crepe-shadow-2: var(--crepe-dark-shadow-2);
+}

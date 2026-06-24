@@ -1,0 +1,24 @@
+/*
+ * Aggregated theme for @repo/markdown-editor — the ported Crepe feature CSS,
+ * keyed on Crepe's exact class names. Layered on top of @milkdown/theme-nord
+ * (base prose typography), which MarkdownEditor imports first.
+ *
+ * All @import statements live here, at the top, so the external (node_modules)
+ * stylesheets precede every rule-bearing import — CSS requires @import rules to
+ * come before any other rule.
+ */
+@import "@milkdown/kit/prose/gapcursor/style/gapcursor.css";
+@import "@milkdown/kit/prose/tables/style/tables.css";
+@import "katex/dist/katex.min.css";
+@import "prosemirror-virtual-cursor/style/virtual-cursor.css";
+@import "./vars.css";
+@import "./cursor.css";
+@import "./placeholder.css";
+@import "./list-item.css";
+@import "./toolbar.css";
+@import "./block-edit.css";
+@import "./link-tooltip.css";
+@import "./image-block.css";
+@import "./code-block.css";
+@import "./table.css";
+@import "./latex.css";

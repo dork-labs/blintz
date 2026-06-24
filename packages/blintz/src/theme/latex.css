@@ -1,0 +1,70 @@
+/*
+ * latex (P3) — ported from Crepe's `theme/common/latex.css`, keyed on Crepe's
+ * exact class names. The inline atom is styled directly (KaTeX renders into it
+ * from the schema's `toDOM`); the edit popover is positioned by the reused
+ * `TooltipProvider` and shown via `data-show`. KaTeX's own stylesheet
+ * (`katex/dist/katex.min.css`) is imported in `index.css`.
+ *
+ * Crepe used a nested ProseMirror editor for the source field (`.ProseMirror`);
+ * we use a plain `.latex-input`, so its rule carries the equivalent sizing/font.
+ * The confirm button's icon is themed via `color:` (Lucide stroke) like the rest.
+ */
+.milkdown {
+  span[data-type="math_inline"] {
+    padding: 0 4px;
+    display: inline-block;
+    vertical-align: bottom;
+    color: var(--crepe-color-primary);
+    cursor: pointer;
+  }
+
+  .milkdown-latex-inline-edit {
+    position: absolute;
+    z-index: 10;
+    background: var(--crepe-color-surface);
+    box-shadow: var(--crepe-shadow-1);
+    border-radius: 8px;
+    padding: 2px 6px 2px 12px;
+
+    &[data-show="false"] {
+      display: none;
+    }
+
+    & > .container {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+
+      & > .latex-input {
+        outline: none;
+        border: none;
+        background: transparent;
+        min-width: 174px;
+        max-width: 294px;
+        font-family: var(--crepe-font-code);
+        font-size: 14px;
+        color: var(--crepe-color-on-background);
+      }
+
+      & > .button {
+        width: 24px;
+        height: 24px;
+        cursor: pointer;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        & > svg {
+          width: 18px;
+          height: 18px;
+          color: var(--crepe-color-outline);
+        }
+
+        &:hover {
+          background: var(--crepe-color-hover);
+        }
+      }
+    }
+  }
+}

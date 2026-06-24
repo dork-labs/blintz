@@ -1,0 +1,29 @@
+{
+  "name": "blintz-monorepo",
+  "private": true,
+  "type": "module",
+  "description": "Monorepo for Blintz — a Vue-free React port of Milkdown's Crepe editor.",
+  "workspaces": [
+    "packages/*",
+    "apps/*",
+    "examples/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w blintz",
+    "dev": "npm run dev -w bakeoff",
+    "bakeoff": "npm run dev -w bakeoff",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "vitest run"
+  },
+  "comment": "Force a single @types/react across the workspace so no package gets a nested older copy (a nested @types/react 18 vs the root 19 splits ReactNode and breaks JSX-component types — the bigint/Promise<ReactNode> error).",
+  "overrides": {
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.9.0",
+    "vite": "^7.0.0",
+    "vitest": "^3.2.6"
+  }
+}

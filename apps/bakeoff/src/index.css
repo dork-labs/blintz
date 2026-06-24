@@ -1,0 +1,710 @@
+:root {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+  color-scheme: dark;
+}
+
+/* ---- Theme tokens ---- */
+:root,
+[data-app-theme="dark"] {
+  --bg: #0e1116;
+  --bg-elev: #161b22;
+  --bg-elev-2: #1c232d;
+  --border: #2a313c;
+  --border-strong: #3a4452;
+  --text: #e6edf3;
+  --text-dim: #9aa7b4;
+  --text-faint: #6e7d8c;
+  --accent: #4493f8;
+  --accent-soft: rgba(68, 147, 248, 0.15);
+  --good: #3fb950;
+  --good-soft: rgba(63, 185, 80, 0.16);
+  --ok: #d29922;
+  --ok-soft: rgba(210, 153, 34, 0.16);
+  --bad: #f85149;
+  --bad-soft: rgba(248, 81, 73, 0.16);
+  --neutral: #8b949e;
+  --neutral-soft: rgba(139, 148, 158, 0.16);
+  --add-bg: rgba(63, 185, 80, 0.14);
+  --del-bg: rgba(248, 81, 73, 0.14);
+  color-scheme: dark;
+}
+
+[data-app-theme="light"] {
+  --bg: #f6f8fa;
+  --bg-elev: #ffffff;
+  --bg-elev-2: #f0f3f6;
+  --border: #d8dee4;
+  --border-strong: #c2cbd4;
+  --text: #1f2328;
+  --text-dim: #57606a;
+  --text-faint: #818b96;
+  --accent: #0969da;
+  --accent-soft: rgba(9, 105, 218, 0.1);
+  --good: #1a7f37;
+  --good-soft: rgba(26, 127, 55, 0.12);
+  --ok: #9a6700;
+  --ok-soft: rgba(154, 103, 0, 0.12);
+  --bad: #cf222e;
+  --bad-soft: rgba(207, 34, 46, 0.12);
+  --neutral: #6e7781;
+  --neutral-soft: rgba(110, 119, 129, 0.12);
+  --add-bg: rgba(26, 127, 55, 0.12);
+  --del-bg: rgba(207, 34, 46, 0.12);
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* ---- Layout ---- */
+.app {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 24px 24px 64px;
+}
+
+.topbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 20px;
+}
+.topbar-title h1 {
+  margin: 0 0 6px;
+  font-size: 22px;
+  letter-spacing: -0.01em;
+}
+.subtitle {
+  margin: 0;
+  color: var(--text-dim);
+  max-width: 760px;
+}
+
+.theme-toggle {
+  flex: none;
+  background: var(--bg-elev);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.theme-toggle:hover {
+  border-color: var(--border-strong);
+}
+
+/* ---- Switcher ---- */
+.switcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.switch-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 12px;
+  color: var(--text-dim);
+  transition: border-color 0.12s, color 0.12s, background 0.12s;
+}
+.switch-tab:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+.switch-tab.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--text);
+}
+.switch-name {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+/* ---- Badges / pills ---- */
+.badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.badge-good {
+  background: var(--good-soft);
+  color: var(--good);
+}
+.badge-ok {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+.badge-bad {
+  background: var(--bad-soft);
+  color: var(--bad);
+}
+.badge-neutral {
+  background: var(--neutral-soft);
+  color: var(--neutral);
+}
+
+/* ---- Workspace: editor + output ---- */
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(360px, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 1080px) {
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+}
+
+.editor-col,
+.output-col {
+  min-width: 0;
+}
+
+.panel-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.kind-pill {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--bg-elev-2);
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+}
+.warn-pill {
+  margin-left: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--bad-soft);
+  color: var(--bad);
+}
+.info-pill {
+  margin-left: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.panel-blurb {
+  margin: 0 0 14px;
+  color: var(--text-dim);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.editor-host {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  min-height: 540px;
+}
+.editor-loading {
+  padding: 40px;
+  color: var(--text-faint);
+  text-align: center;
+}
+
+/* ---- Output panel ---- */
+.output {
+  position: sticky;
+  top: 16px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+}
+.output-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.output-header h2 {
+  margin: 0;
+  font-size: 15px;
+}
+.diff-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+}
+.diff-badge.clean {
+  background: var(--good-soft);
+  color: var(--good);
+}
+.diff-badge.drift {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.output-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 12px 0;
+  font-size: 12px;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+}
+.stat-change {
+  color: var(--ok);
+}
+.stat-add {
+  color: var(--good);
+}
+.stat-del {
+  color: var(--bad);
+}
+
+.output-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.seg {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.seg button {
+  background: var(--bg-elev-2);
+  color: var(--text-dim);
+  border: none;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.seg button.active {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+.output-actions {
+  display: flex;
+  gap: 6px;
+}
+.output-actions button {
+  background: var(--bg-elev-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.output-actions button:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+.output-actions .reset:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.output-pre {
+  margin: 0;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  max-height: 460px;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Diff view */
+.diff-pre {
+  white-space: normal;
+  padding: 6px 0;
+}
+.diff-row {
+  display: flex;
+  gap: 8px;
+  padding: 0 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.diff-row.diff-add {
+  background: var(--add-bg);
+}
+.diff-row.diff-del {
+  background: var(--del-bg);
+}
+.diff-gutter {
+  flex: none;
+  width: 12px;
+  color: var(--text-faint);
+  user-select: none;
+}
+.diff-add .diff-gutter {
+  color: var(--good);
+}
+.diff-del .diff-gutter {
+  color: var(--bad);
+}
+.diff-text {
+  flex: 1;
+}
+
+/* ---- Notes ---- */
+.notes {
+  margin-top: 16px;
+}
+.notes-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+.notes-hint {
+  font-weight: 400;
+  color: var(--text-faint);
+}
+.notes-textarea {
+  width: 100%;
+  min-height: 70px;
+  resize: vertical;
+  background: var(--bg-elev);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+}
+.notes-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* ---- Comparison table ---- */
+.comparison {
+  margin-top: 36px;
+}
+.comparison h2 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+.comparison-note {
+  margin: 0 0 14px;
+  color: var(--text-dim);
+  font-size: 13px;
+  max-width: 760px;
+}
+.table-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.comparison-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.comparison-table th,
+.comparison-table td {
+  text-align: left;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.comparison-table thead th {
+  background: var(--bg-elev-2);
+  color: var(--text-dim);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.comparison-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.comparison-table tbody tr.active-row {
+  background: var(--accent-soft);
+}
+.cell-name {
+  font-weight: 600;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+.cell-bundle {
+  color: var(--text-dim);
+}
+.cell-license {
+  color: var(--text-dim);
+  font-size: 12px;
+}
+.cell-links .sep {
+  color: var(--text-faint);
+  margin: 0 6px;
+}
+
+/* ---- Footer ---- */
+.footer {
+  margin-top: 36px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  color: var(--text-faint);
+  font-size: 12px;
+}
+.footer code {
+  font-family: var(--font-mono);
+  background: var(--bg-elev-2);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+/* ---- Per-editor hosts ---- */
+.mde-wrap,
+.mdx-wrap,
+.blocknote-wrap {
+  height: 540px;
+  overflow: auto;
+}
+/* @milkdown/react host (nord theme). The nord theme doesn't set surface colors,
+   so we set the editing surface here from the app's own tokens (dark below). */
+.milkdown-react-host {
+  height: 540px;
+  overflow: auto;
+  background: var(--bg);
+  color: var(--text);
+}
+.milkdown-react-host .milkdown {
+  height: 100%;
+}
+.milkdown-react-host .milkdown .ProseMirror {
+  min-height: 100%;
+  padding: 16px 20px;
+  /* Left gutter so the block handle ("+"/"::") sits in the content margin like
+     Crepe, instead of flipping right or spilling outside the editor. Same var
+     the package's default uses; this host rule out-specifies that default. */
+  padding-left: var(--crepe-block-handle-gutter, 5.5rem);
+  outline: none;
+}
+
+/* MDXEditor needs a visible min height for the content area */
+.mdx-wrap .mdxeditor {
+  height: 100%;
+}
+.mdx-content {
+  min-height: 440px;
+}
+
+/* react-markdown split */
+.rm-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  height: 540px;
+}
+@media (max-width: 640px) {
+  .rm-split {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+}
+.rm-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.rm-editor {
+  border-right: 1px solid var(--border);
+}
+.rm-pane-label {
+  flex: none;
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+  background: var(--bg-elev-2);
+  border-bottom: 1px solid var(--border);
+}
+.rm-textarea {
+  flex: 1;
+  resize: none;
+  border: none;
+  background: var(--bg);
+  color: var(--text);
+  padding: 14px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.rm-textarea:focus {
+  outline: none;
+}
+.rm-rendered {
+  flex: 1;
+  overflow: auto;
+  padding: 14px 18px;
+}
+
+/* Minimal markdown-body styling for the react-markdown render */
+.markdown-body {
+  color: var(--text);
+}
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3 {
+  line-height: 1.25;
+  margin: 1.2em 0 0.5em;
+}
+.markdown-body h1 {
+  font-size: 1.5em;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.3em;
+}
+.markdown-body h2 {
+  font-size: 1.25em;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.3em;
+}
+.markdown-body h3 {
+  font-size: 1.1em;
+}
+.markdown-body code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: var(--bg-elev-2);
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+}
+.markdown-body pre {
+  background: var(--bg-elev-2);
+  padding: 12px;
+  border-radius: 8px;
+  overflow: auto;
+}
+.markdown-body pre code {
+  background: none;
+  padding: 0;
+}
+.markdown-body blockquote {
+  margin: 0.8em 0;
+  padding: 0 1em;
+  color: var(--text-dim);
+  border-left: 3px solid var(--border-strong);
+}
+.markdown-body table {
+  border-collapse: collapse;
+  margin: 0.8em 0;
+  display: block;
+  overflow: auto;
+}
+.markdown-body th,
+.markdown-body td {
+  border: 1px solid var(--border);
+  padding: 6px 12px;
+}
+.markdown-body th {
+  background: var(--bg-elev-2);
+}
+.markdown-body hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 1.4em 0;
+}
+.markdown-body ul,
+.markdown-body ol {
+  padding-left: 1.6em;
+}
+.markdown-body a {
+  color: var(--accent);
+}
+
+/* ---- @milkdown/react (nord theme) dark mode ----
+   The nord theme only flips a few elements at @media (prefers-color-scheme: dark),
+   which doesn't follow the app's manual data-app-theme toggle. So we supply the
+   dark editing surface ourselves (the host sets the background; nord supplies the
+   prose typography). The panel also remounts on theme change via a key upstream. */
+[data-app-theme="dark"] .milkdown-react-host,
+[data-app-theme="dark"] .milkdown-react-host .ProseMirror {
+  background: var(--bg);
+  color: var(--text);
+}
+[data-app-theme="dark"] .milkdown-react-host .milkdown-theme-nord blockquote {
+  color: var(--text-dim);
+}
+[data-app-theme="dark"] .milkdown-react-host .milkdown-theme-nord code {
+  background-color: var(--bg-elev-2);
+  color: var(--text);
+}
+[data-app-theme="dark"] .milkdown-react-host .milkdown-theme-nord pre {
+  background-color: var(--bg-elev-2);
+}
+[data-app-theme="dark"] .milkdown-react-host .milkdown-theme-nord a {
+  color: var(--accent);
+}
+[data-app-theme="dark"]
+  .milkdown-react-host
+  .milkdown-theme-nord.prose
+  :where(td, th) {
+  border-color: var(--border);
+}
+[data-app-theme="dark"]
+  .milkdown-react-host
+  .milkdown-theme-nord.prose
+  :where(td, th):nth-child(odd) {
+  background-color: var(--bg-elev-2);
+}

@@ -1,0 +1,24 @@
+/* Ported from crepe/src/theme/common/cursor.css.
+   (The gapcursor + virtual-cursor stylesheet @imports are hoisted to index.css
+   so they precede all rule-bearing imports, per the CSS @import ordering rule.) */
+.milkdown {
+  .crepe-drop-cursor {
+    background-color: color-mix(
+      in srgb,
+      var(--crepe-color-outline),
+      transparent 50%
+    );
+    opacity: 0.5;
+    transition: all 0.2s;
+    pointer-events: none;
+  }
+
+  .ProseMirror-gapcursor:after {
+    box-sizing: border-box;
+    border-top: 1px solid var(--crepe-color-on-background);
+  }
+
+  .ProseMirror-focused {
+    --prosemirror-virtual-cursor-color: var(--crepe-color-outline);
+  }
+}
