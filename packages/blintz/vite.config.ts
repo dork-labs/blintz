@@ -11,7 +11,10 @@ import dts from "vite-plugin-dts";
 // `@milkdown/theme-nord/style.css`, the prose/table CSS), and Vite extracts all
 // of it into a single `dist/blintz.css` (the `./styles.css` export).
 export default defineConfig({
-  plugins: [react(), dts({ include: ["src"] })],
+  plugins: [
+    react(),
+    dts({ include: ["src"], exclude: ["src/**/*.test.ts"] }),
+  ],
   build: {
     lib: {
       entry: "src/index.ts",
