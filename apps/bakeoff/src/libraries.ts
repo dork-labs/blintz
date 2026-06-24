@@ -5,7 +5,7 @@ import { lazy } from "react";
 export interface EditorPanelProps {
   markdown: string;
   onChange: (next: string) => void;
-  /** "dark" | "light" — panels that support theming should respect this. */
+  /** "dark" | "light". Panels that support theming should respect this. */
   theme: "dark" | "light";
 }
 
@@ -24,18 +24,32 @@ export interface LibraryMeta {
     | "viewer + raw textarea";
   /** Rough installed bundle weight, for the comparison table. */
   bundle: string;
-  /** Round-trip expectation — the headline metric of this bake-off. */
+  /** Round-trip expectation, the headline metric of this bakeoff. */
   roundTrip: RoundTrip;
   license: string;
   docsUrl: string;
   npmUrl: string;
   /** One-paragraph profile shown in the UI + README. */
   blurb: string;
-  /** Lazy-loaded panel — mounts only when this library is selected. */
+  /** Lazy-loaded panel; mounts only when this library is selected. */
   Panel: LazyExoticComponent<ComponentType<EditorPanelProps>>;
 }
 
 export const LIBRARIES: LibraryMeta[] = [
+  {
+    id: "milkdown-react",
+    name: "Blintz",
+    packages: ["blintz"],
+    kind: "markdown-native WYSIWYG",
+    bundle: "~650 KB (ProseMirror + remark; no Vue)",
+    roundTrip: "faithful",
+    license: "MIT",
+    docsUrl: "https://github.com/dork-labs/blintz",
+    npmUrl: "https://www.npmjs.com/package/blintz",
+    blurb:
+      "Blintz is this repo's editor: Milkdown's Crepe rebuilt in React, with no Vue in the bundle. It ships the full Crepe surface (slash menu, a block drag handle that reorders, a selection toolbar, code blocks, math, images, tables) and treats markdown as the source of truth, so edits round-trip back to clean markdown. Built on @milkdown/kit (ProseMirror and remark), with the view layer in React through @prosemirror-adapter/react.",
+    Panel: lazy(() => import("./editors/MilkdownReactPanel")),
+  },
   {
     id: "react-md-editor",
     name: "@uiw/react-md-editor",
@@ -47,7 +61,7 @@ export const LIBRARIES: LibraryMeta[] = [
     docsUrl: "https://uiwjs.github.io/react-md-editor/",
     npmUrl: "https://www.npmjs.com/package/@uiw/react-md-editor",
     blurb:
-      "A classic split markdown editor: a raw source textarea on the left with a live rendered preview on the right. Because you edit the markdown source directly, round-trip fidelity is perfect by construction — the string you type is the string you store. Controlled via value/onChange (onChange hands you the markdown), themed by setting data-color-mode on a wrapper, and styled from a single imported CSS file. The pragmatic, lowest-risk choice when the source IS the truth.",
+      "A classic split markdown editor: a raw source textarea on the left with a live rendered preview on the right. Because you edit the markdown source directly, round-trip fidelity is perfect by construction: the string you type is the string you store. Controlled via value/onChange (onChange hands you the markdown), themed by setting data-color-mode on a wrapper, and styled from a single imported CSS file. The pragmatic, lowest-risk choice when the source IS the truth.",
     Panel: lazy(() => import("./editors/ReactMdEditorPanel")),
   },
   {
@@ -65,24 +79,6 @@ export const LIBRARIES: LibraryMeta[] = [
     Panel: lazy(() => import("./editors/MdxEditorPanel")),
   },
   {
-    id: "milkdown-react",
-    name: "Milkdown (@milkdown/react)",
-    packages: [
-      "@milkdown/react@7.21.2",
-      "@milkdown/kit@7.21.2",
-      "@milkdown/theme-nord@7.21.2",
-    ],
-    kind: "markdown-native WYSIWYG",
-    bundle: "~650 KB (ProseMirror + remark; no Vue in the bundle)",
-    roundTrip: "mostly",
-    license: "MIT",
-    docsUrl: "https://milkdown.dev/docs/recipes/react",
-    npmUrl: "https://www.npmjs.com/package/@milkdown/react",
-    blurb:
-      "Milkdown is a headless WYSIWYG framework on ProseMirror + remark; here it's assembled by hand from @milkdown/kit + the official @milkdown/react bindings — deliberately NOT the batteries-included Crepe distribution, whose built-in UI chrome (slash menu, tooltips) is built with Vue 3. You compose the editor yourself: MilkdownProvider + useEditor + <Milkdown/>, building Editor.make() with the commonmark and gfm presets, the listener plugin (markdownUpdated → onChange), and the nord theme; defaultValueCtx seeds it and useInstance + editor.action(replaceAll(...)) handles external resets. Because it round-trips through remark, fidelity is good. No Vue ends up in the shipped bundle (we never import Milkdown's Vue-based @milkdown/components), though @milkdown/react still pulls vue into node_modules transitively via @milkdown/kit. The trade-off vs Crepe: you build the toolbar/slash-menu UI yourself — which is exactly the plan here (rebuild Crepe's polished surface in React).",
-    Panel: lazy(() => import("./editors/MilkdownReactPanel")),
-  },
-  {
     id: "blocknote",
     name: "@blocknote/react",
     packages: [
@@ -97,7 +93,7 @@ export const LIBRARIES: LibraryMeta[] = [
     docsUrl: "https://www.blocknotejs.org/",
     npmUrl: "https://www.npmjs.com/package/@blocknote/react",
     blurb:
-      "A polished Notion-style BLOCK editor: content is a tree of typed blocks, not a text buffer, which gives a delightful editing UX (slash menu, drag handles, nested blocks). Its internal model is JSON; markdown is a secondary export. The API is explicit about this — blocksToMarkdownLossy() and tryParseMarkdownToBlocks() both carry 'lossy' in the name. For a markdown-backed store this is the cautionary data point of the bake-off: superb to write in, but every save/load risks dropping or reshaping markdown the block model can't represent.",
+      "A polished Notion-style BLOCK editor: content is a tree of typed blocks, not a text buffer, which gives a delightful editing UX (slash menu, drag handles, nested blocks). Its internal model is JSON; markdown is a secondary export. The API is explicit about this: blocksToMarkdownLossy() and tryParseMarkdownToBlocks() both carry 'lossy' in the name. For a markdown-backed store this is the cautionary data point of the bake-off: superb to write in, but every save/load risks dropping or reshaping markdown the block model can't represent.",
     Panel: lazy(() => import("./editors/BlockNotePanel")),
   },
   {
@@ -111,7 +107,7 @@ export const LIBRARIES: LibraryMeta[] = [
     docsUrl: "https://github.com/remarkjs/react-markdown",
     npmUrl: "https://www.npmjs.com/package/react-markdown",
     blurb:
-      "Not an editor at all — a render-only viewer that turns a markdown string into React elements (no dangerouslySetInnerHTML), with GFM tables/strikethrough/etc. via remark-gfm. Paired here with a plain textarea so it represents the 'store markdown, edit the raw source, render read-only' approach. Round-trip is a non-question: the textarea is the source of truth and the renderer never touches it. The safest, lightest option when you do not need WYSIWYG — exactly the model this project's experiment prose will likely use.",
+      "Not an editor at all: a render-only viewer that turns a markdown string into React elements (no dangerouslySetInnerHTML), with GFM tables/strikethrough/etc. via remark-gfm. Paired here with a plain textarea so it represents the 'store markdown, edit the raw source, render read-only' approach. Round-trip is a non-question: the textarea is the source of truth and the renderer never touches it. The safest, lightest option when you do not need WYSIWYG.",
     Panel: lazy(() => import("./editors/ReactMarkdownPanel")),
   },
 ];

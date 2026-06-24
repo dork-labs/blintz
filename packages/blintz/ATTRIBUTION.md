@@ -1,13 +1,13 @@
 # Attribution & third-party licenses
 
-**Blintz is a React port of [Milkdown](https://milkdown.dev)'s _Crepe_ editor.**
-It reuses Milkdown's framework-agnostic engine (`@milkdown/kit`) as-is and
-re-implements Crepe's Vue UI layer as React components (via
-[`@prosemirror-adapter/react`](https://github.com/prosemirror-adapter/prosemirror-adapter)).
-A substantial amount of CSS (the `--crepe-*` theme tokens and feature styles)
-and view logic is **derived from, or copied from, Crepe**. All of it is used
-under the MIT license. Blintz is **not** affiliated with or endorsed by the
-Milkdown project — it is an independent derivative work.
+Blintz is a React port of [Milkdown](https://milkdown.dev)'s _Crepe_ editor. It
+reuses Milkdown's framework-agnostic engine (`@milkdown/kit`) as is and
+re-implements Crepe's Vue UI layer as React components, via
+[`@prosemirror-adapter/react`](https://github.com/prosemirror-adapter/prosemirror-adapter).
+A good amount of CSS (the `--crepe-*` theme tokens and feature styles) and view
+logic is derived from, or copied from, Crepe. All of it is used under the MIT
+license. Blintz is not affiliated with or endorsed by the Milkdown project. It
+is an independent derivative work.
 
 Blintz itself is MIT-licensed (see [LICENSE](./LICENSE)).
 
@@ -51,15 +51,15 @@ its respective authors and used under the stated license:
 
 | Project | License |
 | --- | --- |
-| [ProseMirror](https://prosemirror.net) (`prosemirror-*`) | MIT — © Marijn Haverbeke and contributors |
+| [ProseMirror](https://prosemirror.net) (`prosemirror-*`) | MIT, © Marijn Haverbeke and contributors |
 | [`@prosemirror-adapter/react`](https://github.com/prosemirror-adapter/prosemirror-adapter) | MIT |
-| [remark / unified / mdast](https://unifiedjs.com) (`remark-*`, `unist-util-*`) | MIT — © Titus Wormer |
+| [remark / unified / mdast](https://unifiedjs.com) (`remark-*`, `unist-util-*`) | MIT, © Titus Wormer |
 | [`remark-math`](https://github.com/remarkjs/remark-math) | MIT |
-| [KaTeX](https://katex.org) | MIT — © Khan Academy and contributors |
-| [CodeMirror](https://codemirror.net) (`@codemirror/*`, `codemirror`) | MIT — © Marijn Haverbeke and contributors |
-| [Lucide](https://lucide.dev) (`lucide-static`) | ISC — © Lucide Contributors (forked from Feather, MIT © Cole Bemis) |
-| [Floating UI](https://floating-ui.com) (`@floating-ui/dom`) | MIT — © Floating UI contributors |
-| [DOMPurify](https://github.com/cure53/DOMPurify) (`dompurify`) | Apache-2.0 OR MPL-2.0 — © Cure53 and contributors |
+| [KaTeX](https://katex.org) | MIT, © Khan Academy and contributors |
+| [CodeMirror](https://codemirror.net) (`@codemirror/*`, `codemirror`) | MIT, © Marijn Haverbeke and contributors |
+| [Lucide](https://lucide.dev) (`lucide-static`) | ISC, © Lucide Contributors (forked from Feather, MIT © Cole Bemis) |
+| [Floating UI](https://floating-ui.com) (`@floating-ui/dom`) | MIT, © Floating UI contributors |
+| [DOMPurify](https://github.com/cure53/DOMPurify) (`dompurify`) | Apache-2.0 OR MPL-2.0, © Cure53 and contributors |
 | [`prosemirror-virtual-cursor`](https://github.com/saljam/prosemirror-virtual-cursor) | MIT |
 
 Full license texts for runtime dependencies are distributed within each
@@ -69,14 +69,13 @@ package under `node_modules/`.
 
 ## Upstream sync (ported modules)
 
-Most of Blintz reuses the Milkdown engine unchanged and only re-implements the
-**view** layer in React. A handful of modules, however, are **Vue-free
-re-implementations of pure pieces** that Milkdown only ships inside Vue-bundled
+Most of Blintz reuses the Milkdown engine unchanged and re-implements only the
+view layer in React. A few modules are Vue-free re-implementations of pure
+pieces that Milkdown ships only inside the Vue-bundled
 `@milkdown/kit/component/*` packages (importing those would pull Vue into the
-bundle). These were **ported from `@milkdown/kit` `^7.21.2`** and should be
-re-verified on each Milkdown minor bump — in particular that any `$ctx` **slice
-key names** still match upstream (a silent rename upstream would make a local
-config diverge):
+bundle). These were ported from `@milkdown/kit` `^7.21.2`. Re-verify them on each
+Milkdown minor bump, in particular that the `$ctx` slice key names still match
+upstream, since a silent rename upstream would make a local config diverge:
 
 | Local module(s) | Ported from |
 | --- | --- |

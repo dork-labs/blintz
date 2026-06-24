@@ -44,10 +44,10 @@ export default function App() {
     <div className="app">
       <header className="topbar">
         <div className="topbar-title">
-          <h1>Markdown editor bake-off</h1>
+          <h1>Blintz bakeoff</h1>
           <p className="subtitle">
-            Edit the same content in 6 React libraries. Watch the{" "}
-            <strong>Markdown output</strong> panel to judge round-trip fidelity —
+            Edit the same content in 5 React markdown editors. Watch the{" "}
+            <strong>Markdown output</strong> panel to judge round-trip fidelity,
             the metric that matters when prose is stored as markdown.
           </p>
         </div>
@@ -84,12 +84,12 @@ export default function App() {
               <span className={`kind-pill kind-${active.id}`}>{active.kind}</span>
               {active.roundTrip === "lossy" && (
                 <span className="warn-pill">
-                  ⚠ markdown export is explicitly lossy — expect drift
+                  ⚠ markdown export is explicitly lossy, expect drift
                 </span>
               )}
               {active.roundTrip === "n/a (viewer)" && (
                 <span className="info-pill">
-                  viewer + raw textarea — source is the truth
+                  viewer + raw textarea, source is the truth
                 </span>
               )}
             </div>
@@ -128,7 +128,6 @@ export default function App() {
       <ComparisonTable activeId={activeId} />
 
       <footer className="footer">
-        Standalone playground — intentionally outside the monorepo workspaces.
         Each editor mounts lazily, only when selected. Shared markdown state lives
         in <code>App.tsx</code>; the seed is in <code>src/seed.ts</code>.
       </footer>
