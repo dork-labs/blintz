@@ -12,4 +12,4 @@ The app-side concerns stay in your application: where threads are stored, who th
 
 Comments stay out of the markdown, because markdown has no way to represent a thread. They persist separately, keyed to the document, and re-anchor to their text on load by matching the quoted text plus a little surrounding context (the W3C Web Annotation / Hypothesis approach).
 
-Loading this into Blintz needs a small extension point (a `plugins` prop on `<MarkdownEditor>`) that is not published yet.
+Loading this into Blintz uses the editor's plugin seam: the `plugins` prop on `<MarkdownEditor>`, available since Blintz v0.1.0+. See [brief.md](./brief.md) for the full feature plan.
