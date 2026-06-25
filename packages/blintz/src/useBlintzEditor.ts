@@ -17,6 +17,7 @@ import type {
 } from "@prosemirror-adapter/react";
 
 import type { CtxHolder } from "./shared/editor-ctx";
+import type { BlintzPlugin } from "./plugin";
 import { blockEditFeature } from "./features/block-edit/plugins";
 import { codeMirrorFeature } from "./features/code-block";
 import { cursorFeature } from "./features/cursor";
@@ -41,6 +42,8 @@ interface UseCrepeEditorArgs {
   pluginViewFactory: ReturnType<typeof usePluginViewFactory>;
   /** Stable holder the factory fills with the live `Ctx` for view components. */
   ctxHolder: CtxHolder;
+  /** Consumer extensions, registered after the built-in features. */
+  plugins?: BlintzPlugin[];
 }
 
 /**
@@ -62,9 +65,15 @@ export function useBlintzEditor({
   nodeViewFactory,
   pluginViewFactory,
   ctxHolder,
+  plugins,
 }: UseCrepeEditorArgs): void {
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+
+  // Captured once: useEditor runs the factory a single time, so the registered
+  // plugin set is fixed at mount (same as the built-in features). Changing the
+  // `plugins` prop later does not re-register — remount to swap extensions.
+  const pluginsRef = useRef(plugins);
 
   // The markdown the editor currently holds: the seed at mount, then whatever
   // the editor last emitted — lets us distinguish an external reset from our
@@ -118,6 +127,12 @@ export function useBlintzEditor({
     linkTooltipFeature(editor, pluginViewFactory);
     // After codeMirrorFeature: block-math wraps codeBlockConfig's renderPreview.
     latexFeature(editor, pluginViewFactory);
+
+    // Consumer extensions last, so they layer over the built-in features (and
+    // can override their config). Each gets the same seam the features use.
+    pluginsRef.current?.forEach((plugin) => {
+      plugin({ editor, nodeViewFactory, pluginViewFactory });
+    });
 
     return editor;
   });

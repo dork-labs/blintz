@@ -10,6 +10,7 @@ import {
 import { EditorCtxProvider } from "./shared/editor-ctx";
 import type { CtxHolder } from "./shared/editor-ctx";
 import { cx } from "./shared/cx";
+import type { BlintzPlugin } from "./plugin";
 import { useBlintzEditor } from "./useBlintzEditor";
 
 import "@milkdown/theme-nord/style.css";
@@ -27,6 +28,12 @@ export interface MarkdownEditorProps {
   placeholder?: string;
   /** Extra class on the host element. */
   className?: string;
+  /**
+   * Extensions registered after the built-in features, so they layer on top.
+   * Each receives the editor and the React view factories (see {@link BlintzPlugin}).
+   * Captured at mount: remount the editor to change the set.
+   */
+  plugins?: BlintzPlugin[];
 }
 
 /**
@@ -44,6 +51,7 @@ export function MarkdownEditor({
   onChange,
   placeholder,
   className,
+  plugins,
 }: MarkdownEditorProps) {
   const ctxHolder = useRef<Ctx | null>(null);
 
@@ -57,6 +65,7 @@ export function MarkdownEditor({
               onChange={onChange}
               placeholder={placeholder}
               ctxHolder={ctxHolder}
+              plugins={plugins}
             />
           </ProsemirrorAdapterProvider>
         </MilkdownProvider>
@@ -70,6 +79,7 @@ interface EditorInnerProps {
   onChange?: (markdown: string) => void;
   placeholder?: string;
   ctxHolder: CtxHolder;
+  plugins?: BlintzPlugin[];
 }
 
 function EditorInner({
@@ -77,6 +87,7 @@ function EditorInner({
   onChange,
   placeholder,
   ctxHolder,
+  plugins,
 }: EditorInnerProps) {
   // Factory hooks must run in render, under both providers; useBlintzEditor
   // closes over them inside the `useEditor` factory (the factory bridge).
@@ -90,6 +101,7 @@ function EditorInner({
     nodeViewFactory,
     pluginViewFactory,
     ctxHolder,
+    plugins,
   });
 
   return <Milkdown />;
