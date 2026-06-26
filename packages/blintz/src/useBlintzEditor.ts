@@ -1,5 +1,10 @@
 import { useEffect, useRef } from "react";
-import { Editor, defaultValueCtx, rootCtx } from "@milkdown/kit/core";
+import {
+  Editor,
+  defaultValueCtx,
+  editorViewOptionsCtx,
+  rootCtx,
+} from "@milkdown/kit/core";
 import type { Ctx } from "@milkdown/kit/ctx";
 import { gfm } from "@milkdown/kit/preset/gfm";
 import { clipboard } from "@milkdown/kit/plugin/clipboard";
@@ -18,6 +23,7 @@ import type {
 
 import type { CtxHolder } from "./shared/editor-ctx";
 import type { BlintzPlugin } from "./plugin";
+import { DEFAULT_EDITABLE, editablePredicate } from "./read-only";
 import { blockEditFeature } from "./features/block-edit/plugins";
 import { codeMirrorFeature } from "./features/code-block";
 import { cursorFeature } from "./features/cursor";
@@ -36,6 +42,8 @@ import { toolbarFeature } from "./features/toolbar/plugin";
 interface UseCrepeEditorArgs {
   /** Current markdown — seeds the editor and, on external change, resets it. */
   value: string;
+  /** Read-only when `false`. Read once at construction (default `true`). */
+  editable?: boolean;
   onChange?: (markdown: string) => void;
   placeholder?: string;
   nodeViewFactory: ReturnType<typeof useNodeViewFactory>;
@@ -60,6 +68,7 @@ interface UseCrepeEditorArgs {
  */
 export function useBlintzEditor({
   value,
+  editable = DEFAULT_EDITABLE,
   onChange,
   placeholder,
   nodeViewFactory,
@@ -83,6 +92,11 @@ export function useBlintzEditor({
   // seed chase the changing `value` prop.
   const seedRef = useRef(value);
   const placeholderRef = useRef(placeholder);
+  // Captured once (v1 model): the editor is assembled a single time, so
+  // editability is fixed at construction. It is wired into ProseMirror's
+  // `editable` option as a getter, so a future reactive toggle could flip this
+  // ref and re-dispatch; for now DorkOS remounts on a view<->edit switch.
+  const editableRef = useRef(editable);
 
   useEditor((root) => {
     const editor = Editor.make()
@@ -90,6 +104,15 @@ export function useBlintzEditor({
         ctx.set(rootCtx, root);
         ctx.set(defaultValueCtx, seedRef.current);
         ctxHolder.current = ctx;
+        // Read-only master switch. ProseMirror calls this getter on each state
+        // update, so `view.editable` tracks it — and the toolbar, placeholder,
+        // table, list-item, image-block, code-block, and latex features already
+        // gate their editing affordances on `view.editable`. (block-edit is the
+        // lone exception; it is gated by registration below.)
+        ctx.update(editorViewOptionsCtx, (prev) => ({
+          ...prev,
+          editable: editablePredicate(() => editableRef.current),
+        }));
         ctx.get(listenerCtx).markdownUpdated((_ctx: Ctx, md, prevMd) => {
           if (md === prevMd) return;
           editorValueRef.current = md;
@@ -123,7 +146,16 @@ export function useBlintzEditor({
     codeMirrorFeature(editor, nodeViewFactory);
     tableFeature(editor, nodeViewFactory);
     toolbarFeature(editor, pluginViewFactory);
-    blockEditFeature(editor, pluginViewFactory);
+    // block-edit (slash menu + "+/::" block handle + drag-to-reorder) is pure
+    // editing chrome and, unlike every other feature, has no runtime
+    // `view.editable` guard of its own — the handle shows via BlockProvider's
+    // own hover listeners regardless of editability. Gate it by registration:
+    // in read-only it is simply never installed. `editableRef` is captured at
+    // construction (the v1 remount-on-toggle model); a reactive in-place toggle
+    // is future polish.
+    if (editableRef.current) {
+      blockEditFeature(editor, pluginViewFactory);
+    }
     linkTooltipFeature(editor, pluginViewFactory);
     // After codeMirrorFeature: block-math wraps codeBlockConfig's renderPreview.
     latexFeature(editor, pluginViewFactory);

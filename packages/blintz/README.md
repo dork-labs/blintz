@@ -19,7 +19,26 @@ function Example() {
 }
 ```
 
-The whole public surface is one controlled `<MarkdownEditor value onChange />` component, plus `placeholder` and `className`. The Milkdown engine, the Crepe-derived feature views, and the theme CSS sit behind it.
+The whole public surface is one controlled `<MarkdownEditor value onChange />` component, plus `editable`, `placeholder`, and `className`. The Milkdown engine, the Crepe-derived feature views, and the theme CSS sit behind it.
+
+## Read-only mode
+
+Pass `editable={false}` to render a document read-only. The content still renders with full fidelity (lists, code with highlighting, tables, images, links, math), but editing is off: ProseMirror's `contenteditable` is disabled and the editing chrome is suppressed (the slash menu, the `+`/`::` block handle and drag-to-reorder, the selection toolbar, the link-edit popovers, and the placeholder).
+
+```tsx
+<MarkdownEditor value={md} editable={false} />
+```
+
+`editable` defaults to `true`, so existing consumers are unaffected. The value is read when the editor mounts; to switch between view and edit, remount the editor with a changed React `key`.
+
+```tsx
+<MarkdownEditor
+  key={mode}
+  value={md}
+  editable={mode === "edit"}
+  onChange={setMd}
+/>
+```
 
 ## Why Blintz
 

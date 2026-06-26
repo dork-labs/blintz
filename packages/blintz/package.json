@@ -1,6 +1,6 @@
 {
   "name": "blintz",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "description": "Blintz — a Vue-free React port of Milkdown's Crepe editor: the polished WYSIWYG markdown UX (slash menu, block drag handle, selection toolbar, rich node views) rebuilt as React components, with clean markdown round-tripping.",
   "keywords": [

@@ -22,6 +22,16 @@ export interface MarkdownEditorProps {
    * value the editor emitted (e.g. an external "reset"), the editor resets to it.
    */
   value: string;
+  /**
+   * Whether the document can be edited. Defaults to `true`. When `false`, the
+   * editor renders read-only: ProseMirror editing is disabled and the editing
+   * chrome (slash menu, block handle, selection toolbar, drag handles,
+   * link-edit popovers, placeholder) is suppressed, while the content (lists,
+   * code with highlighting, tables, images, links, math) still renders. The
+   * value is read at construction; remount (e.g. a changed React `key`) to
+   * switch modes.
+   */
+  editable?: boolean;
   /** Called with the new markdown on every edit. */
   onChange?: (markdown: string) => void;
   /** Prompt shown in an empty block. Defaults to "Type / for commands". */
@@ -48,6 +58,7 @@ export interface MarkdownEditorProps {
  */
 export function MarkdownEditor({
   value,
+  editable,
   onChange,
   placeholder,
   className,
@@ -62,6 +73,7 @@ export function MarkdownEditor({
           <ProsemirrorAdapterProvider>
             <EditorInner
               value={value}
+              editable={editable}
               onChange={onChange}
               placeholder={placeholder}
               ctxHolder={ctxHolder}
@@ -76,6 +88,7 @@ export function MarkdownEditor({
 
 interface EditorInnerProps {
   value: string;
+  editable?: boolean;
   onChange?: (markdown: string) => void;
   placeholder?: string;
   ctxHolder: CtxHolder;
@@ -84,6 +97,7 @@ interface EditorInnerProps {
 
 function EditorInner({
   value,
+  editable,
   onChange,
   placeholder,
   ctxHolder,
@@ -96,6 +110,7 @@ function EditorInner({
 
   useBlintzEditor({
     value,
+    editable,
     onChange,
     placeholder,
     nodeViewFactory,
