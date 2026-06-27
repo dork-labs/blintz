@@ -1,0 +1,33 @@
+/* frontmatter feature theme — the leading `---` YAML block, rendered as an
+ * editable raw-text region (its own `code: true` node, class
+ * `.milkdown-frontmatter`). Styled as a quiet metadata panel: monospace and
+ * surface-tinted, set apart from the prose body so it reads as document
+ * metadata rather than content. */
+
+.milkdown {
+  .milkdown-frontmatter {
+    display: block;
+    margin: 0 0 16px;
+    padding: 12px 16px;
+    background: var(--crepe-color-surface);
+    border: 1px solid var(--crepe-color-outline);
+    border-radius: 8px;
+    color: var(--crepe-color-on-surface-variant);
+    font-family: var(--crepe-font-code, monospace);
+    font-size: 13px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-x: auto;
+
+    code {
+      padding: 0;
+      background: transparent;
+      font-family: inherit;
+    }
+
+    &.ProseMirror-selectednode {
+      outline: 1px solid var(--crepe-color-primary);
+    }
+  }
+}

@@ -4,10 +4,10 @@
  * Blintz markdown round-trip fidelity contract.
  *
  * Mounts a headless editor with the EXACT grammar plugins `useBlintzEditor`
- * loads (commonmark minus the empty-line `<br />` hack, plus gfm), seeds a
- * document, and serializes it straight back. The React feature views are
- * editing chrome and do not affect serialization, so this is a faithful measure
- * of what survives a parse -> serialize trip.
+ * loads (commonmark minus the empty-line `<br />` hack, plus gfm and the
+ * frontmatter feature), seeds a document, and serializes it straight back. The
+ * React feature views are editing chrome and do not affect serialization, so
+ * this is a faithful measure of what survives a parse -> serialize trip.
  *
  * The point of this file is to make fidelity OBSERVED, not assumed. It pins
  * three tiers of behavior so a `@milkdown/kit` bump that changes any of them
@@ -15,7 +15,7 @@
  *   1. Faithful — byte-identical round-trip (safe to edit and write back).
  *   2. Normalized — content survives, formatting is rewritten (noisy git diff).
  *   3. Unrepresentable — the grammar cannot hold it; the HOST must preserve it
- *      out-of-band (e.g. DorkOS strips frontmatter and re-glues it on save).
+ *      out-of-band (e.g. Obsidian `[[wikilinks]]`, which commonmark escapes).
  */
 import { describe, expect, it } from "vitest";
 import { Editor, defaultValueCtx, rootCtx } from "@milkdown/kit/core";
@@ -26,18 +26,20 @@ import {
   commonmarkWithoutEmptyLinePreservation,
   stripEmptyLineBreaks,
 } from "./features/empty-paragraphs";
+import { frontmatterFeature } from "./features/frontmatter";
 
 async function roundTrip(markdown: string): Promise<string> {
   const root = document.createElement("div");
-  const editor = await Editor.make()
+  const editor = Editor.make()
     .config((ctx) => {
       ctx.set(rootCtx, root);
       ctx.set(defaultValueCtx, markdown);
     })
     .use(commonmarkWithoutEmptyLinePreservation)
     .use(stripEmptyLineBreaks)
-    .use(gfm)
-    .create();
+    .use(gfm);
+  frontmatterFeature(editor);
+  await editor.create();
   const out = editor.action(getMarkdown());
   await editor.destroy();
   return out;
@@ -68,6 +70,23 @@ describe("Blintz round-trip fidelity", () => {
       expect(out).toContain("<strong>bold</strong>");
       // stripEmptyLineBreaks intentionally removes <br> artifacts.
       expect(out).not.toContain("<br>");
+    });
+
+    it("preserves YAML frontmatter (now a first-class editable block)", async () => {
+      // Previously tier 3: the `---` fences were shredded into a thematic break
+      // plus a setext heading. The frontmatter feature now round-trips them, so
+      // the host no longer needs to strip and re-glue frontmatter out-of-band.
+      const md =
+        "---\ntitle: Hello\ntags: [a, b]\n---\n\n# Body\n\nSome text.\n";
+      expect(await roundTrip(md)).toBe(md);
+    });
+
+    it("preserves multiline and nested YAML frontmatter verbatim", async () => {
+      // remark-frontmatter holds the block between the fences as opaque text, so
+      // arbitrary YAML (nested maps, sequences) round-trips byte-for-byte.
+      const md =
+        "---\ntitle: Hello\nlist:\n  - one\n  - two\nnested:\n  key: value\n---\n\n# Body\n";
+      expect(await roundTrip(md)).toBe(md);
     });
   });
 
@@ -100,17 +119,6 @@ describe("Blintz round-trip fidelity", () => {
   });
 
   describe("tier 3: unrepresentable (host must preserve out-of-band)", () => {
-    it("DESTROYS YAML frontmatter — the host must strip and re-glue it", async () => {
-      const input =
-        "---\ntitle: Hello\ntags: [a, b]\n---\n\n# Body\n\nSome text.\n";
-      const out = await roundTrip(input);
-      // The `---` fences do not survive: the opener becomes a thematic break and
-      // the closer becomes a setext underline. This is WHY DorkOS peels the
-      // frontmatter off before editing and re-attaches the original bytes on save.
-      expect(out).not.toBe(input);
-      expect(out.startsWith("---\n")).toBe(false);
-    });
-
     it("escapes Obsidian wikilinks (breaks them)", async () => {
       const out = await roundTrip("See [[Other Note]] for details.\n");
       expect(out).toContain("\\[\\[Other Note]]");

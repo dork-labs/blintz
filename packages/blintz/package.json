@@ -70,6 +70,7 @@
     "katex": "^0.17.0",
     "lucide-static": "^1.21.0",
     "prosemirror-virtual-cursor": "^0.4.2",
+    "remark-frontmatter": "^5.0.0",
     "remark-math": "^6.0.0",
     "unist-util-visit": "^5.0.0"
   },

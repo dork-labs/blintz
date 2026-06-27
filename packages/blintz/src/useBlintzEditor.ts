@@ -31,6 +31,7 @@ import {
   commonmarkWithoutEmptyLinePreservation,
   stripEmptyLineBreaks,
 } from "./features/empty-paragraphs";
+import { frontmatterFeature } from "./features/frontmatter";
 import { imageBlockFeature } from "./features/image-block";
 import { latexFeature } from "./features/latex";
 import { linkTooltipFeature } from "./features/link-tooltip/plugins";
@@ -136,6 +137,8 @@ export function useBlintzEditor({
       .use(listener);
 
     // Features (share the engine above; each registers its own views/plugins).
+    // frontmatter first: pure grammar (remark + schema), nothing depends on it.
+    frontmatterFeature(editor);
     cursorFeature(editor);
     placeholderFeature(editor, {
       text: placeholderRef.current ?? "Type / for commands",
