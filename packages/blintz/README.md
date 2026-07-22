@@ -29,16 +29,13 @@ Pass `editable={false}` to render a document read-only. The content still render
 <MarkdownEditor value={md} editable={false} />
 ```
 
-`editable` defaults to `true`, so existing consumers are unaffected. The value is read when the editor mounts; to switch between view and edit, remount the editor with a changed React `key`.
+`editable` defaults to `true`, so existing consumers are unaffected. It is reactive: toggle it on a mounted editor and the change takes effect right away, with no remount. The editor turns editable or read-only in place, so scroll position and selection are kept and the editing chrome (slash menu, block handle, drag) works the moment editing is enabled.
 
 ```tsx
-<MarkdownEditor
-  key={mode}
-  value={md}
-  editable={mode === "edit"}
-  onChange={setMd}
-/>
+<MarkdownEditor value={md} editable={mode === "edit"} onChange={setMd} />
 ```
+
+(The `plugins` prop is the exception: it is read once at mount, so changing the extension set still needs a remount.)
 
 ## Why Blintz
 
@@ -68,11 +65,21 @@ Icons come from [Lucide](https://lucide.dev), rendered through a sanitized `<Ico
 
 ## Theming
 
-Visual styling runs on `--crepe-*` CSS custom properties (the token names are inherited from Crepe), scoped to `.milkdown`. Override them on any ancestor to re-theme. Dark mode turns on two ways: the OS `prefers-color-scheme: dark`, and an explicit `.dark` or `[data-theme="dark"]` ancestor, so you can force it regardless of OS.
+Visual styling runs on `--crepe-*` CSS custom properties (the token names are inherited from Crepe), scoped to `.milkdown`. Override them on any ancestor to re-theme.
+
+Light is the default. The editor paints its own background and text from the tokens, so it never inherits the host page's colors. There are three ways to change the palette, and the later signal wins:
+
+- **Dark, from the OS.** `prefers-color-scheme: dark` turns the editor dark on its own, with no markup.
+- **Dark, forced.** A `.dark` or `[data-theme="dark"]` ancestor forces dark even when the OS is light.
+- **Light, forced.** A `.light` or `[data-theme="light"]` ancestor forces light and wins over a dark OS, so a light app stays light on a dark machine.
 
 ```html
 <div data-theme="dark">
   <!-- <MarkdownEditor /> renders dark here -->
+</div>
+
+<div data-theme="light">
+  <!-- and light here, even if the OS is in dark mode -->
 </div>
 ```
 

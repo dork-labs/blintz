@@ -4,63 +4,40 @@
  * Crepe scopes them — the Milkdown editor root carries that class.
  */
 .milkdown {
-  --crepe-color-background: #fdfcff;
-  --crepe-color-on-background: #1b1c1d;
-  --crepe-color-surface: #f8f9ff;
-  --crepe-color-surface-low: #f2f3fa;
-  --crepe-color-on-surface: #191c20;
-  --crepe-color-on-surface-variant: #43474e;
-  --crepe-color-outline: #73777f;
-  --crepe-color-primary: #37618e;
-  --crepe-color-secondary: #d7e3f8;
-  --crepe-color-on-secondary: #101c2b;
-  --crepe-color-inverse: #2e3135;
-  --crepe-color-on-inverse: #eff0f7;
-  --crepe-color-inline-code: #ba1a1a;
-  --crepe-color-error: #ba1a1a;
-  --crepe-color-hover: #eceef4;
-  --crepe-color-selected: #e1e2e8;
-  --crepe-color-inline-area: #d8dae0;
+  /*
+   * LIGHT PALETTE — the single source of the light color/shadow literals
+   * (mirrors the `--crepe-dark-*` aliases below). The live `--crepe-*` tokens
+   * default to these, and the explicit-light path re-maps back onto them, so no
+   * hex value is written twice.
+   */
+  --crepe-light-color-background: #fdfcff;
+  --crepe-light-color-on-background: #1b1c1d;
+  --crepe-light-color-surface: #f8f9ff;
+  --crepe-light-color-surface-low: #f2f3fa;
+  --crepe-light-color-on-surface: #191c20;
+  --crepe-light-color-on-surface-variant: #43474e;
+  --crepe-light-color-outline: #73777f;
+  --crepe-light-color-primary: #37618e;
+  --crepe-light-color-secondary: #d7e3f8;
+  --crepe-light-color-on-secondary: #101c2b;
+  --crepe-light-color-inverse: #2e3135;
+  --crepe-light-color-on-inverse: #eff0f7;
+  --crepe-light-color-inline-code: #ba1a1a;
+  --crepe-light-color-error: #ba1a1a;
+  --crepe-light-color-hover: #eceef4;
+  --crepe-light-color-selected: #e1e2e8;
+  --crepe-light-color-inline-area: #d8dae0;
 
-  --crepe-font-title: Rubik, Cambria, "Times New Roman", Times, serif;
-  --crepe-font-default: Inter, Arial, Helvetica, sans-serif;
-  --crepe-font-code:
-    "JetBrains Mono", Menlo, Monaco, "Courier New", Courier, monospace;
-
-  --crepe-shadow-1:
+  --crepe-light-shadow-1:
     0px 1px 3px 1px rgba(0, 0, 0, 0.15), 0px 1px 2px 0px rgba(0, 0, 0, 0.3);
-  --crepe-shadow-2:
+  --crepe-light-shadow-2:
     0px 2px 6px 2px rgba(0, 0, 0, 0.15), 0px 1px 2px 0px rgba(0, 0, 0, 0.3);
-}
 
-/*
- * ---------------------------------------------------------------------------
- * DARK THEME — `--crepe-*` overrides, values copied verbatim from Crepe's
- * `crepe/src/theme/nord-dark/style.css`. Scoped to `.milkdown` exactly like the
- * light tokens above, so the same feature CSS keys off them with no other change.
- *
- * ACTIVATION CONTRACT — dark mode turns on when EITHER signal is present:
- *
- *   (a) OS preference — `@media (prefers-color-scheme: dark)`, automatic; or
- *   (b) Explicit opt-in — a `.dark` class OR a `[data-theme="dark"]` attribute on
- *       ANY ancestor of `.milkdown` (e.g. on <html>, <body>, or a wrapper div):
- *
- *         <html class="dark">              … or …  <html data-theme="dark">
- *         <div  class="dark"><Editor/></div>  …  <div data-theme="dark"><Editor/></div>
- *
- * Light is the DEFAULT — with no signal present, the light tokens above win.
- * The explicit opt-in (b) is NOT gated behind the media query, so a consuming
- * app's manual "force dark" toggle works even when the OS is in light mode.
- * (Conversely, a consumer wanting to force LIGHT despite a dark OS should simply
- * not emit either signal — and can scope its own `[data-theme="light"]` reset if
- * it overrides an inherited `.dark`.)
- *
- * Single source of color literals: the dark palette is declared once as
- * `--crepe-dark-*` aliases on `.milkdown`; both activation paths below merely
- * remap the live `--crepe-*` tokens onto those aliases (no duplicated hex values).
- * ---------------------------------------------------------------------------
- */
-.milkdown {
+  /*
+   * DARK PALETTE — the single source of the dark literals, values copied
+   * verbatim from Crepe's `crepe/src/theme/nord-dark/style.css`. Both dark
+   * activation paths below map the live `--crepe-*` tokens onto these aliases.
+   */
   --crepe-dark-color-background: #1b1c1d;
   --crepe-dark-color-on-background: #f8f9ff;
   --crepe-dark-color-surface: #111418;
@@ -85,9 +62,80 @@
   --crepe-dark-shadow-2:
     0px 1px 2px 0px rgba(255, 255, 255, 0.3),
     0px 2px 6px 2px rgba(255, 255, 255, 0.15);
+
+  /*
+   * LIVE TOKENS — what the feature CSS actually reads. They default to the light
+   * palette (no theme signal present); the paths below remap them for dark or
+   * re-assert light.
+   */
+  --crepe-color-background: var(--crepe-light-color-background);
+  --crepe-color-on-background: var(--crepe-light-color-on-background);
+  --crepe-color-surface: var(--crepe-light-color-surface);
+  --crepe-color-surface-low: var(--crepe-light-color-surface-low);
+  --crepe-color-on-surface: var(--crepe-light-color-on-surface);
+  --crepe-color-on-surface-variant: var(--crepe-light-color-on-surface-variant);
+  --crepe-color-outline: var(--crepe-light-color-outline);
+  --crepe-color-primary: var(--crepe-light-color-primary);
+  --crepe-color-secondary: var(--crepe-light-color-secondary);
+  --crepe-color-on-secondary: var(--crepe-light-color-on-secondary);
+  --crepe-color-inverse: var(--crepe-light-color-inverse);
+  --crepe-color-on-inverse: var(--crepe-light-color-on-inverse);
+  --crepe-color-inline-code: var(--crepe-light-color-inline-code);
+  --crepe-color-error: var(--crepe-light-color-error);
+  --crepe-color-hover: var(--crepe-light-color-hover);
+  --crepe-color-selected: var(--crepe-light-color-selected);
+  --crepe-color-inline-area: var(--crepe-light-color-inline-area);
+
+  --crepe-shadow-1: var(--crepe-light-shadow-1);
+  --crepe-shadow-2: var(--crepe-light-shadow-2);
+
+  /* Fonts — theme-independent. */
+  --crepe-font-title: Rubik, Cambria, "Times New Roman", Times, serif;
+  --crepe-font-default: Inter, Arial, Helvetica, sans-serif;
+  --crepe-font-code:
+    "JetBrains Mono", Menlo, Monaco, "Courier New", Courier, monospace;
 }
 
-/* The remap that activates dark — shared by both paths, no literal duplication. */
+/*
+ * ROOT PAINT — assert the editor's own background and text on `.milkdown`
+ * itself, resolving the live tokens (so it tracks light/dark automatically).
+ * Restores the base paint Crepe's `reset.css` applied, which the Crepe->Blintz
+ * port dropped: without it the editor inherits the host page's colors, which is
+ * how dark surface tokens ended up combined with a near-black text color
+ * inherited from a light app. Deliberately minimal — this is ONLY the paint, not
+ * Crepe's full reset (its padding/typography would shift consumers).
+ */
+.milkdown {
+  background: var(--crepe-color-background);
+  color: var(--crepe-color-on-background);
+}
+
+/*
+ * ---------------------------------------------------------------------------
+ * ACTIVATION CONTRACT — which palette the live tokens resolve to:
+ *
+ *   • DEFAULT is light — no signal present, the light tokens above win.
+ *   • DARK turns on when EITHER signal is present:
+ *       (a) OS preference — `@media (prefers-color-scheme: dark)`, automatic; or
+ *       (b) Explicit opt-in — a `.dark` class OR `[data-theme="dark"]` on ANY
+ *           ancestor of `.milkdown` (e.g. <html>, <body>, or a wrapper div).
+ *   • EXPLICIT LIGHT — a `.light` class OR `[data-theme="light"]` ancestor
+ *       re-asserts light and, because it is declared AFTER the dark `@media`
+ *       block, BEATS a dark OS preference. This is what lets a light host win
+ *       over a dark OS (the mirror of the explicit-dark path).
+ *
+ *         <html class="dark">   … or …  <html data-theme="dark">
+ *         <html class="light">  … or …  <html data-theme="light">
+ *
+ * `:where(...)` keeps every ancestor selector at zero specificity, so each of
+ * the three override blocks has the same specificity as the bare `.milkdown`
+ * defaults — source order then decides, letting the last matching signal win.
+ * No color literal is duplicated: the overrides only remap the live `--crepe-*`
+ * tokens onto the `--crepe-light-*` / `--crepe-dark-*` aliases declared once.
+ * ---------------------------------------------------------------------------
+ */
+
+/* Dark via OS preference. */
 @media (prefers-color-scheme: dark) {
   .milkdown {
     --crepe-color-background: var(--crepe-dark-color-background);
@@ -95,7 +143,9 @@
     --crepe-color-surface: var(--crepe-dark-color-surface);
     --crepe-color-surface-low: var(--crepe-dark-color-surface-low);
     --crepe-color-on-surface: var(--crepe-dark-color-on-surface);
-    --crepe-color-on-surface-variant: var(--crepe-dark-color-on-surface-variant);
+    --crepe-color-on-surface-variant: var(
+      --crepe-dark-color-on-surface-variant
+    );
     --crepe-color-outline: var(--crepe-dark-color-outline);
     --crepe-color-primary: var(--crepe-dark-color-primary);
     --crepe-color-secondary: var(--crepe-dark-color-secondary);
@@ -113,12 +163,8 @@
   }
 }
 
-/*
- * Explicit opt-in — NOT inside the media query, so it forces dark regardless of
- * OS preference. `:where(...)` keeps the ancestor part at zero specificity, so
- * the resulting selector specificity equals the bare `.milkdown` light block —
- * source order then makes this (later) win when an opt-in signal is present.
- */
+/* Dark via explicit opt-in — NOT gated by the media query, so it forces dark
+   even when the OS is light. */
 :where(.dark, [data-theme="dark"]) .milkdown {
   --crepe-color-background: var(--crepe-dark-color-background);
   --crepe-color-on-background: var(--crepe-dark-color-on-background);
@@ -140,4 +186,31 @@
 
   --crepe-shadow-1: var(--crepe-dark-shadow-1);
   --crepe-shadow-2: var(--crepe-dark-shadow-2);
+}
+
+/* Explicit light — declared AFTER the dark `@media` block so a `.light` /
+   `[data-theme="light"]` ancestor beats a dark OS preference (the mirror of the
+   explicit-dark selector above). Re-maps the live tokens onto the light aliases;
+   kept adjacent to the dark path so the three overrides read as one set. */
+:where(.light, [data-theme="light"]) .milkdown {
+  --crepe-color-background: var(--crepe-light-color-background);
+  --crepe-color-on-background: var(--crepe-light-color-on-background);
+  --crepe-color-surface: var(--crepe-light-color-surface);
+  --crepe-color-surface-low: var(--crepe-light-color-surface-low);
+  --crepe-color-on-surface: var(--crepe-light-color-on-surface);
+  --crepe-color-on-surface-variant: var(--crepe-light-color-on-surface-variant);
+  --crepe-color-outline: var(--crepe-light-color-outline);
+  --crepe-color-primary: var(--crepe-light-color-primary);
+  --crepe-color-secondary: var(--crepe-light-color-secondary);
+  --crepe-color-on-secondary: var(--crepe-light-color-on-secondary);
+  --crepe-color-inverse: var(--crepe-light-color-inverse);
+  --crepe-color-on-inverse: var(--crepe-light-color-on-inverse);
+  --crepe-color-inline-code: var(--crepe-light-color-inline-code);
+  --crepe-color-error: var(--crepe-light-color-error);
+  --crepe-color-hover: var(--crepe-light-color-hover);
+  --crepe-color-selected: var(--crepe-light-color-selected);
+  --crepe-color-inline-area: var(--crepe-light-color-inline-area);
+
+  --crepe-shadow-1: var(--crepe-light-shadow-1);
+  --crepe-shadow-2: var(--crepe-light-shadow-2);
 }

@@ -27,9 +27,12 @@ export interface MarkdownEditorProps {
    * editor renders read-only: ProseMirror editing is disabled and the editing
    * chrome (slash menu, block handle, selection toolbar, drag handles,
    * link-edit popovers, placeholder) is suppressed, while the content (lists,
-   * code with highlighting, tables, images, links, math) still renders. The
-   * value is read at construction; remount (e.g. a changed React `key`) to
-   * switch modes.
+   * code with highlighting, tables, images, links, math) still renders.
+   *
+   * Reactive: toggling this on a mounted editor takes effect immediately, with
+   * no remount — `contenteditable` flips and the editing chrome turns on or off
+   * in place, preserving scroll and selection. (`plugins`, by contrast, is
+   * captured at mount.)
    */
   editable?: boolean;
   /** Called with the new markdown on every edit. */

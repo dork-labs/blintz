@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import {
   Editor,
   defaultValueCtx,
+  editorViewCtx,
   editorViewOptionsCtx,
   rootCtx,
 } from "@milkdown/kit/core";
@@ -93,10 +94,11 @@ export function useBlintzEditor({
   // seed chase the changing `value` prop.
   const seedRef = useRef(value);
   const placeholderRef = useRef(placeholder);
-  // Captured once (v1 model): the editor is assembled a single time, so
-  // editability is fixed at construction. It is wired into ProseMirror's
-  // `editable` option as a getter, so a future reactive toggle could flip this
-  // ref and re-dispatch; for now DorkOS remounts on a view<->edit switch.
+  // The read-only master switch, kept in a ref because ProseMirror's `editable`
+  // option is wired as a getter that reads it live on every state update. The
+  // effect below syncs this ref to the `editable` prop and forces a view refresh
+  // so editability flips IN PLACE — no editor rebuild, no remount. (Only
+  // editability is reactive; `value` resets and `plugins` stay their own model.)
   const editableRef = useRef(editable);
 
   useEditor((root) => {
@@ -150,15 +152,16 @@ export function useBlintzEditor({
     tableFeature(editor, nodeViewFactory);
     toolbarFeature(editor, pluginViewFactory);
     // block-edit (slash menu + "+/::" block handle + drag-to-reorder) is pure
-    // editing chrome and, unlike every other feature, has no runtime
-    // `view.editable` guard of its own — the handle shows via BlockProvider's
-    // own hover listeners regardless of editability. Gate it by registration:
-    // in read-only it is simply never installed. `editableRef` is captured at
-    // construction (the v1 remount-on-toggle model); a reactive in-place toggle
-    // is future polish.
-    if (editableRef.current) {
-      blockEditFeature(editor, pluginViewFactory);
-    }
+    // editing chrome. It is ALWAYS registered and no-ops while read-only, so a
+    // host that mounts read-only and later enables editing (the common "view
+    // then edit" flow) gets a working slash menu / handle / drag with no
+    // remount. Three runtime guards keep it dormant when not editable: the
+    // upstream BlockService already gates its hover/drag DOM handlers on
+    // `view.editable` (handleDOMEvents.mousemove), and our slash-menu
+    // `shouldShow` and "+"-handle `onAdd` add matching `view.editable` guards
+    // (see features/block-edit/plugins.ts). Gating by registration instead would
+    // strand the chrome permanently off after a read-only mount.
+    blockEditFeature(editor, pluginViewFactory);
     linkTooltipFeature(editor, pluginViewFactory);
     // After codeMirrorFeature: block-math wraps codeBlockConfig's renderPreview.
     latexFeature(editor, pluginViewFactory);
@@ -198,4 +201,36 @@ export function useBlintzEditor({
       cancelled = true;
     };
   }, [value, loading, getInstance]);
+
+  // Reactive editability: sync the ref the `editable` getter reads, then force
+  // ProseMirror to re-run that getter so `view.editable` — and the root's
+  // `contenteditable`, which is what actually routes keystrokes — flips in
+  // place. `view.setProps` re-reads every view prop (including our live
+  // `editable` getter) via `updateStateInner`; it is the clean, Milkdown-
+  // supported refresh, and unlike dispatching a transaction it mutates no doc,
+  // so it fires no `markdownUpdated` / `onChange`. Also re-asserts once the
+  // editor finishes loading (that flip re-runs this effect).
+  useEffect(() => {
+    // Sync immediately so the live getter is correct even before the refresh.
+    editableRef.current = editable;
+    if (loading) return;
+    const editor = getInstance();
+    if (!editor) return;
+    // Defer the refresh out of React's commit phase, exactly as the value effect
+    // above does: `setProps` re-renders the adapter's React node views via
+    // `ReactDOM.flushSync`, which React forbids inside a lifecycle method.
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      editor.action((ctx) => {
+        const view = ctx.get(editorViewCtx);
+        view.setProps({
+          editable: editablePredicate(() => editableRef.current),
+        });
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [editable, loading, getInstance]);
 }

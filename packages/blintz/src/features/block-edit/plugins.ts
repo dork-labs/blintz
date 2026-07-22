@@ -1,11 +1,7 @@
 import type { Editor } from "@milkdown/kit/core";
 import { editorViewCtx } from "@milkdown/kit/core";
 import type { Ctx } from "@milkdown/kit/ctx";
-import {
-  BlockProvider,
-  block,
-  blockConfig,
-} from "@milkdown/kit/plugin/block";
+import { BlockProvider, block, blockConfig } from "@milkdown/kit/plugin/block";
 import { SlashProvider, slashFactory } from "@milkdown/kit/plugin/slash";
 import { paragraphSchema } from "@milkdown/kit/preset/commonmark";
 import { findParent } from "@milkdown/kit/prose";
@@ -55,6 +51,10 @@ function configureBlockHandle(ctx: Ctx, pluginViewFactory: PluginViewFactory) {
   // published on a ctx slice so the React "+" button can call it.
   const onAdd = () => {
     const view = ctx.get(editorViewCtx);
+    // Dormant while read-only. Belt-and-suspenders: the "+" handle is already
+    // hidden then (the BlockService gates its hover handler on `view.editable`),
+    // so this guards the programmatic path in case it is ever reached.
+    if (!view.editable) return;
     if (!view.hasFocus()) view.focus();
 
     const active = blockProvider?.active;
@@ -162,6 +162,11 @@ function configureMenu(ctx: Ctx, pluginViewFactory: PluginViewFactory) {
   };
 
   const shouldShow = (view: EditorView): boolean => {
+    // Never surface the slash menu while read-only, so block-edit can be
+    // registered unconditionally and stay dormant until editing is enabled.
+    // (Normally the menu is only triggered by typing "/" or the "+" handle,
+    // both impossible when not editable, but guard the programmatic path too.)
+    if (!view.editable) return false;
     if (isInCodeBlock(view.state.selection) || isInList(view.state.selection))
       return false;
 
@@ -172,9 +177,7 @@ function configureMenu(ctx: Ctx, pluginViewFactory: PluginViewFactory) {
     if (!isSelectionAtEndOfNode(view.state.selection)) return false;
 
     store.set({
-      filter: currentText.startsWith("/")
-        ? currentText.slice(1)
-        : currentText,
+      filter: currentText.startsWith("/") ? currentText.slice(1) : currentText,
     });
 
     if (typeof programmaticPos === "number") {
