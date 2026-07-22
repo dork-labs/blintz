@@ -15,8 +15,8 @@ export const DEFAULT_EDITABLE = true;
  * always reflects the current value — which is what the feature views
  * (toolbar, placeholder, table, list, image, code, latex) gate their editing
  * affordances on. Keeping it a live getter (not a captured boolean) is also
- * what would let a future reactive toggle flip editability without rebuilding
- * the editor.
+ * what lets the reactive toggle in `useBlintzEditor` flip editability without
+ * rebuilding the editor.
  */
 export function editablePredicate(isEditable: () => boolean): () => boolean {
   return () => isEditable();

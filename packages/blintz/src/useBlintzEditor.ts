@@ -44,7 +44,8 @@ import { toolbarFeature } from "./features/toolbar/plugin";
 interface UseCrepeEditorArgs {
   /** Current markdown — seeds the editor and, on external change, resets it. */
   value: string;
-  /** Read-only when `false`. Read once at construction (default `true`). */
+  /** Read-only when `false` (default `true`). Synced live by the reactivity
+   * effect, so toggling it flips editability in place — no rebuild. */
   editable?: boolean;
   onChange?: (markdown: string) => void;
   placeholder?: string;

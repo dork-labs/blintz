@@ -19,10 +19,11 @@
  * faithful "typing works / stops" proxy (and exactly the symptom DorkOS observed
  * live: `.milkdown [contenteditable]` stuck at `false` after clicking Edit).
  */
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { editorViewCtx } from "@milkdown/kit/core";
+import { getMarkdown } from "@milkdown/kit/utils";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { Milkdown, MilkdownProvider } from "@milkdown/react";
 import {
@@ -47,27 +48,34 @@ interface HarnessProps {
   value: string;
   editable: boolean;
   ctxHolder: CtxHolder;
+  onChange?: (markdown: string) => void;
 }
 
 /** The provider stack `MarkdownEditor` uses, minus its CSS imports. */
-function Harness({ value, editable, ctxHolder }: HarnessProps) {
+function Harness({ value, editable, ctxHolder, onChange }: HarnessProps) {
   return (
     <EditorCtxProvider value={ctxHolder}>
       <MilkdownProvider>
         <ProsemirrorAdapterProvider>
-          <Inner value={value} editable={editable} ctxHolder={ctxHolder} />
+          <Inner
+            value={value}
+            editable={editable}
+            ctxHolder={ctxHolder}
+            onChange={onChange}
+          />
         </ProsemirrorAdapterProvider>
       </MilkdownProvider>
     </EditorCtxProvider>
   );
 }
 
-function Inner({ value, editable, ctxHolder }: HarnessProps) {
+function Inner({ value, editable, ctxHolder, onChange }: HarnessProps) {
   const nodeViewFactory = useNodeViewFactory();
   const pluginViewFactory = usePluginViewFactory();
   useBlintzEditor({
     value,
     editable,
+    onChange,
     nodeViewFactory,
     pluginViewFactory,
     ctxHolder,
@@ -90,6 +98,13 @@ function contentEditable(view: EditorView): string | null {
   return view.dom.getAttribute("contenteditable");
 }
 
+/** The editor's current document, serialized back to markdown. */
+function markdownOf(ctxHolder: CtxHolder): string {
+  const ctx = ctxHolder.current;
+  if (!ctx) throw new Error("ctx not ready");
+  return getMarkdown()(ctx);
+}
+
 describe("reactive editable", () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -107,21 +122,33 @@ describe("reactive editable", () => {
     container.remove();
   });
 
-  async function render(ctxHolder: CtxHolder, editable: boolean) {
+  async function render(
+    ctxHolder: CtxHolder,
+    editable: boolean,
+    onChange?: (markdown: string) => void,
+  ) {
     await act(async () => {
       root.render(
-        <Harness value={SEED} editable={editable} ctxHolder={ctxHolder} />,
+        <Harness
+          value={SEED}
+          editable={editable}
+          ctxHolder={ctxHolder}
+          onChange={onChange}
+        />,
       );
     });
   }
 
   /** Render, then pump act cycles until the editor view is created. */
-  async function mount(editable: boolean): Promise<{
+  async function mount(
+    editable: boolean,
+    onChange?: (markdown: string) => void,
+  ): Promise<{
     ctxHolder: CtxHolder;
     view: EditorView;
   }> {
     const ctxHolder: CtxHolder = { current: null };
-    await render(ctxHolder, editable);
+    await render(ctxHolder, editable, onChange);
     for (let i = 0; i < 100; i++) {
       const view = getView(ctxHolder);
       if (view) return { ctxHolder, view };
@@ -172,5 +199,21 @@ describe("reactive editable", () => {
 
     expect(view.editable).toBe(false);
     expect(contentEditable(view)).toBe("false");
+  });
+
+  it("toggling editable emits no onChange and leaves the document untouched", async () => {
+    const onChange = vi.fn();
+    const { ctxHolder } = await mount(true, onChange);
+
+    // The refresh is a `setProps` (no doc mutation), so a toggle must not look
+    // like an edit: no `onChange`, and the serialized markdown is unchanged.
+    const before = markdownOf(ctxHolder);
+    onChange.mockClear(); // ignore any emission from initial creation
+
+    await render(ctxHolder, false, onChange); // true -> false
+    await render(ctxHolder, true, onChange); // false -> true
+
+    expect(onChange).not.toHaveBeenCalled();
+    expect(markdownOf(ctxHolder)).toBe(before);
   });
 });
