@@ -24,10 +24,10 @@
       box-shadow: var(--crepe-shadow-1);
 
       & > .link-icon {
-        & > svg {
+        & svg {
           width: 18px;
           height: 18px;
-          color: var(--crepe-color-outline);
+          color: var(--crepe-color-on-surface-variant);
         }
 
         border-radius: 8px;
@@ -55,10 +55,10 @@
       }
 
       & > .button {
-        & > svg {
+        & svg {
           width: 18px;
           height: 18px;
-          color: var(--crepe-color-outline);
+          color: var(--crepe-color-on-surface-variant);
         }
 
         padding: 3px;
@@ -99,10 +99,10 @@
       }
 
       & > .button {
-        & > svg {
+        & svg {
           width: 18px;
           height: 18px;
-          color: var(--crepe-color-outline);
+          color: var(--crepe-color-on-surface-variant);
         }
 
         padding: 3px;

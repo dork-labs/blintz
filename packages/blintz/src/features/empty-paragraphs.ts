@@ -40,29 +40,28 @@ interface MdastNode {
   children?: MdastNode[];
 }
 
-/** Recursively drop bare `<br />` html nodes from an mdast tree (in place). */
+/** Drop standalone legacy artifacts and translate inline breaks in every inline
+ * container, including headings and nested marks, without losing a line. */
 function stripBreakHtmlNodes(node: MdastNode): void {
   if (!Array.isArray(node.children)) return;
-  node.children = node.children.filter(
-    (child) =>
-      !(child.type === "html" && BR_VALUES.has((child.value ?? "").trim())),
+  const isBreak = (item: MdastNode) =>
+    item.type === "html" && BR_VALUES.has((item.value ?? "").trim());
+  const blockContainer = ["root", "blockquote", "listItem", "list"].includes(
+    node.type,
   );
+  node.children = node.children
+    .filter((child) => {
+      const legacyParagraph =
+        child.type === "paragraph" &&
+        !!child.children?.length &&
+        child.children.every(isBreak);
+      return !legacyParagraph && !(blockContainer && isBreak(child));
+    })
+    .map((child) => (isBreak(child) ? { type: "break" } : child));
   for (const child of node.children) stripBreakHtmlNodes(child);
 }
 
-/**
- * Backward-compat for prose that was saved **before** this fix: strip any
- * literal `<br />` on parse so it doesn't render as visible `<br />` text.
- *
- * With `remarkPreserveEmptyLinePlugin` removed we also lose its parse half
- * (`visitEmptyLine`), which used to turn a serialized `<br />` back into an
- * empty paragraph. Without that, a standalone `<br />` parses to an inline
- * `html` atom that renders the literal text "`<br />`". This `$remark` runs on
- * parse and removes those html nodes (the empty paragraph that remains then
- * collapses on the next serialize) — so old `<br />` artifacts migrate to clean
- * markdown the first time the prose is edited. Safe: real hard breaks serialize
- * as `\`-newline (backslash) form, **not** `<br />`, so this never touches them.
- */
+/** Migrate legacy empty paragraphs without destroying intentional inline breaks. */
 export const stripEmptyLineBreaks = $remark(
   "markdownEditorStripEmptyLineBreaks",
   () => () => (tree: MdastNode) => {

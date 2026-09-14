@@ -1,9 +1,11 @@
+/* Public --blintz-* inputs inherit from the host; legacy --crepe-* outputs
+ * remain overrideable directly on .milkdown. Palette selection is local. */
 /*
  * Crepe theme variables (the `--crepe-*` namespace its feature CSS keys off of),
- * copied from `crepe/src/theme/nord/style.css`. Scoped to `.milkdown` exactly as
- * Crepe scopes them — the Milkdown editor root carries that class.
+ * derived from Crepe's palette. Private fallback aliases live on the host;
+ * public inputs inherit from the app and live feature tokens resolve below.
  */
-.milkdown {
+.milkdown-editor-host {
   /*
    * LIGHT PALETTE — the single source of the light color/shadow literals
    * (mirrors the `--crepe-dark-*` aliases below). The live `--crepe-*` tokens
@@ -40,8 +42,8 @@
    */
   --crepe-dark-color-background: #1b1c1d;
   --crepe-dark-color-on-background: #f8f9ff;
-  --crepe-dark-color-surface: #111418;
-  --crepe-dark-color-surface-low: #191c20;
+  --crepe-dark-color-surface: #24282e;
+  --crepe-dark-color-surface-low: #2a2f36;
   --crepe-dark-color-on-surface: #e1e2e8;
   --crepe-dark-color-on-surface-variant: #c3c6cf;
   --crepe-dark-color-outline: #8d9199;
@@ -57,160 +59,182 @@
   --crepe-dark-color-inline-area: #111418;
 
   --crepe-dark-shadow-1:
-    0px 1px 2px 0px rgba(255, 255, 255, 0.3),
-    0px 1px 3px 1px rgba(255, 255, 255, 0.15);
+    0 6px 18px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.2);
   --crepe-dark-shadow-2:
-    0px 1px 2px 0px rgba(255, 255, 255, 0.3),
-    0px 2px 6px 2px rgba(255, 255, 255, 0.15);
-
-  /*
-   * LIVE TOKENS — what the feature CSS actually reads. They default to the light
-   * palette (no theme signal present); the paths below remap them for dark or
-   * re-assert light.
-   */
-  --crepe-color-background: var(--crepe-light-color-background);
-  --crepe-color-on-background: var(--crepe-light-color-on-background);
-  --crepe-color-surface: var(--crepe-light-color-surface);
-  --crepe-color-surface-low: var(--crepe-light-color-surface-low);
-  --crepe-color-on-surface: var(--crepe-light-color-on-surface);
-  --crepe-color-on-surface-variant: var(--crepe-light-color-on-surface-variant);
-  --crepe-color-outline: var(--crepe-light-color-outline);
-  --crepe-color-primary: var(--crepe-light-color-primary);
-  --crepe-color-secondary: var(--crepe-light-color-secondary);
-  --crepe-color-on-secondary: var(--crepe-light-color-on-secondary);
-  --crepe-color-inverse: var(--crepe-light-color-inverse);
-  --crepe-color-on-inverse: var(--crepe-light-color-on-inverse);
-  --crepe-color-inline-code: var(--crepe-light-color-inline-code);
-  --crepe-color-error: var(--crepe-light-color-error);
-  --crepe-color-hover: var(--crepe-light-color-hover);
-  --crepe-color-selected: var(--crepe-light-color-selected);
-  --crepe-color-inline-area: var(--crepe-light-color-inline-area);
-
-  --crepe-shadow-1: var(--crepe-light-shadow-1);
-  --crepe-shadow-2: var(--crepe-light-shadow-2);
-
-  /* Fonts — theme-independent. */
-  --crepe-font-title: Rubik, Cambria, "Times New Roman", Times, serif;
-  --crepe-font-default: Inter, Arial, Helvetica, sans-serif;
-  --crepe-font-code:
-    "JetBrains Mono", Menlo, Monaco, "Courier New", Courier, monospace;
+    0 12px 32px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
-/*
- * ROOT PAINT — assert the editor's own background and text on `.milkdown`
- * itself, resolving the live tokens (so it tracks light/dark automatically).
- * Restores the base paint Crepe's `reset.css` applied, which the Crepe->Blintz
- * port dropped: without it the editor inherits the host page's colors, which is
- * how dark surface tokens ended up combined with a near-black text color
- * inherited from a light app. Deliberately minimal — this is ONLY the paint, not
- * Crepe's full reset (its padding/typography would shift consumers).
- */
 .milkdown {
-  background: var(--crepe-color-background);
-  color: var(--crepe-color-on-background);
+  --crepe-color-background: var(
+    --blintz-color-background,
+    var(--crepe-light-color-background)
+  );
+  --crepe-color-on-background: var(
+    --blintz-color-on-background,
+    var(--crepe-light-color-on-background)
+  );
+  --crepe-color-surface: var(
+    --blintz-color-surface,
+    var(--crepe-light-color-surface)
+  );
+  --crepe-color-surface-low: var(
+    --blintz-color-surface-low,
+    var(--crepe-light-color-surface-low)
+  );
+  --crepe-color-on-surface: var(
+    --blintz-color-on-surface,
+    var(--crepe-light-color-on-surface)
+  );
+  --crepe-color-on-surface-variant: var(
+    --blintz-color-on-surface-variant,
+    var(--crepe-light-color-on-surface-variant)
+  );
+  --crepe-color-outline: var(
+    --blintz-color-outline,
+    var(--crepe-light-color-outline)
+  );
+  --crepe-color-primary: var(
+    --blintz-color-primary,
+    var(--crepe-light-color-primary)
+  );
+  --crepe-color-secondary: var(
+    --blintz-color-secondary,
+    var(--crepe-light-color-secondary)
+  );
+  --crepe-color-on-secondary: var(
+    --blintz-color-on-secondary,
+    var(--crepe-light-color-on-secondary)
+  );
+  --crepe-color-inverse: var(
+    --blintz-color-inverse,
+    var(--crepe-light-color-inverse)
+  );
+  --crepe-color-on-inverse: var(
+    --blintz-color-on-inverse,
+    var(--crepe-light-color-on-inverse)
+  );
+  --crepe-color-inline-code: var(
+    --blintz-color-inline-code,
+    var(--crepe-light-color-inline-code)
+  );
+  --crepe-color-error: var(
+    --blintz-color-error,
+    var(--crepe-light-color-error)
+  );
+  --crepe-color-hover: var(
+    --blintz-color-hover,
+    var(--crepe-light-color-hover)
+  );
+  --crepe-color-selected: var(
+    --blintz-color-selected,
+    var(--crepe-light-color-selected)
+  );
+  --crepe-color-inline-area: var(
+    --blintz-color-inline-area,
+    var(--crepe-light-color-inline-area)
+  );
+  --crepe-shadow-1: var(--blintz-shadow-1, var(--crepe-light-shadow-1));
+  --crepe-shadow-2: var(--blintz-shadow-2, var(--crepe-light-shadow-2));
+  --crepe-font-default: var(
+    --blintz-font-default,
+    ui-sans-serif,
+    system-ui,
+    sans-serif
+  );
+  --crepe-font-title: var(--blintz-font-title, var(--crepe-font-default));
+  --crepe-font-code: var(
+    --blintz-font-code,
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace
+  );
+  --blintz-syntax-keyword: var(--blintz-code-keyword, #8250a8);
+  --blintz-syntax-string: var(--blintz-code-string, #196b3d);
+  --blintz-syntax-number: var(--blintz-code-number, #92581b);
+  --blintz-syntax-comment: var(--blintz-code-comment, #5f6873);
+  --blintz-syntax-function: var(--blintz-code-function, #245ca3);
+  --blintz-syntax-type: var(--blintz-code-type, #8e3d63);
+  --blintz-syntax-operator: var(--blintz-code-operator, #4f5966);
 }
-
-/*
- * ---------------------------------------------------------------------------
- * ACTIVATION CONTRACT — which palette the live tokens resolve to:
- *
- *   • DEFAULT is light — no signal present, the light tokens above win.
- *   • DARK turns on when EITHER signal is present:
- *       (a) OS preference — `@media (prefers-color-scheme: dark)`, automatic; or
- *       (b) Explicit opt-in — a `.dark` class OR `[data-theme="dark"]` on ANY
- *           ancestor of `.milkdown` (e.g. <html>, <body>, or a wrapper div).
- *   • EXPLICIT LIGHT — a `.light` class OR `[data-theme="light"]` ancestor
- *       re-asserts light and, because it is declared AFTER the dark `@media`
- *       block, BEATS a dark OS preference. This is what lets a light host win
- *       over a dark OS (the mirror of the explicit-dark path).
- *
- *         <html class="dark">   … or …  <html data-theme="dark">
- *         <html class="light">  … or …  <html data-theme="light">
- *
- * `:where(...)` keeps every ancestor selector at zero specificity, so each of
- * the three override blocks has the same specificity as the bare `.milkdown`
- * defaults — source order then decides, letting the last matching signal win.
- * No color literal is duplicated: the overrides only remap the live `--crepe-*`
- * tokens onto the `--crepe-light-*` / `--crepe-dark-*` aliases declared once.
- * ---------------------------------------------------------------------------
- */
-
-/* Dark via OS preference. */
-@media (prefers-color-scheme: dark) {
-  .milkdown {
-    --crepe-color-background: var(--crepe-dark-color-background);
-    --crepe-color-on-background: var(--crepe-dark-color-on-background);
-    --crepe-color-surface: var(--crepe-dark-color-surface);
-    --crepe-color-surface-low: var(--crepe-dark-color-surface-low);
-    --crepe-color-on-surface: var(--crepe-dark-color-on-surface);
-    --crepe-color-on-surface-variant: var(
-      --crepe-dark-color-on-surface-variant
-    );
-    --crepe-color-outline: var(--crepe-dark-color-outline);
-    --crepe-color-primary: var(--crepe-dark-color-primary);
-    --crepe-color-secondary: var(--crepe-dark-color-secondary);
-    --crepe-color-on-secondary: var(--crepe-dark-color-on-secondary);
-    --crepe-color-inverse: var(--crepe-dark-color-inverse);
-    --crepe-color-on-inverse: var(--crepe-dark-color-on-inverse);
-    --crepe-color-inline-code: var(--crepe-dark-color-inline-code);
-    --crepe-color-error: var(--crepe-dark-color-error);
-    --crepe-color-hover: var(--crepe-dark-color-hover);
-    --crepe-color-selected: var(--crepe-dark-color-selected);
-    --crepe-color-inline-area: var(--crepe-dark-color-inline-area);
-
-    --crepe-shadow-1: var(--crepe-dark-shadow-1);
-    --crepe-shadow-2: var(--crepe-dark-shadow-2);
-  }
+.milkdown-editor-host[data-blintz-theme="light"] {
+  color-scheme: light;
 }
-
-/* Dark via explicit opt-in — NOT gated by the media query, so it forces dark
-   even when the OS is light. */
-:where(.dark, [data-theme="dark"]) .milkdown {
-  --crepe-color-background: var(--crepe-dark-color-background);
-  --crepe-color-on-background: var(--crepe-dark-color-on-background);
-  --crepe-color-surface: var(--crepe-dark-color-surface);
-  --crepe-color-surface-low: var(--crepe-dark-color-surface-low);
-  --crepe-color-on-surface: var(--crepe-dark-color-on-surface);
-  --crepe-color-on-surface-variant: var(--crepe-dark-color-on-surface-variant);
-  --crepe-color-outline: var(--crepe-dark-color-outline);
-  --crepe-color-primary: var(--crepe-dark-color-primary);
-  --crepe-color-secondary: var(--crepe-dark-color-secondary);
-  --crepe-color-on-secondary: var(--crepe-dark-color-on-secondary);
-  --crepe-color-inverse: var(--crepe-dark-color-inverse);
-  --crepe-color-on-inverse: var(--crepe-dark-color-on-inverse);
-  --crepe-color-inline-code: var(--crepe-dark-color-inline-code);
-  --crepe-color-error: var(--crepe-dark-color-error);
-  --crepe-color-hover: var(--crepe-dark-color-hover);
-  --crepe-color-selected: var(--crepe-dark-color-selected);
-  --crepe-color-inline-area: var(--crepe-dark-color-inline-area);
-
-  --crepe-shadow-1: var(--crepe-dark-shadow-1);
-  --crepe-shadow-2: var(--crepe-dark-shadow-2);
+.milkdown-editor-host[data-blintz-theme="dark"] {
+  color-scheme: dark;
 }
-
-/* Explicit light — declared AFTER the dark `@media` block so a `.light` /
-   `[data-theme="light"]` ancestor beats a dark OS preference (the mirror of the
-   explicit-dark selector above). Re-maps the live tokens onto the light aliases;
-   kept adjacent to the dark path so the three overrides read as one set. */
-:where(.light, [data-theme="light"]) .milkdown {
-  --crepe-color-background: var(--crepe-light-color-background);
-  --crepe-color-on-background: var(--crepe-light-color-on-background);
-  --crepe-color-surface: var(--crepe-light-color-surface);
-  --crepe-color-surface-low: var(--crepe-light-color-surface-low);
-  --crepe-color-on-surface: var(--crepe-light-color-on-surface);
-  --crepe-color-on-surface-variant: var(--crepe-light-color-on-surface-variant);
-  --crepe-color-outline: var(--crepe-light-color-outline);
-  --crepe-color-primary: var(--crepe-light-color-primary);
-  --crepe-color-secondary: var(--crepe-light-color-secondary);
-  --crepe-color-on-secondary: var(--crepe-light-color-on-secondary);
-  --crepe-color-inverse: var(--crepe-light-color-inverse);
-  --crepe-color-on-inverse: var(--crepe-light-color-on-inverse);
-  --crepe-color-inline-code: var(--crepe-light-color-inline-code);
-  --crepe-color-error: var(--crepe-light-color-error);
-  --crepe-color-hover: var(--crepe-light-color-hover);
-  --crepe-color-selected: var(--crepe-light-color-selected);
-  --crepe-color-inline-area: var(--crepe-light-color-inline-area);
-
-  --crepe-shadow-1: var(--crepe-light-shadow-1);
-  --crepe-shadow-2: var(--crepe-light-shadow-2);
+.milkdown-editor-host[data-blintz-theme="dark"]
+  > [data-milkdown-root]
+  > .milkdown {
+  --crepe-color-background: var(
+    --blintz-color-background,
+    var(--crepe-dark-color-background)
+  );
+  --crepe-color-on-background: var(
+    --blintz-color-on-background,
+    var(--crepe-dark-color-on-background)
+  );
+  --crepe-color-surface: var(
+    --blintz-color-surface,
+    var(--crepe-dark-color-surface)
+  );
+  --crepe-color-surface-low: var(
+    --blintz-color-surface-low,
+    var(--crepe-dark-color-surface-low)
+  );
+  --crepe-color-on-surface: var(
+    --blintz-color-on-surface,
+    var(--crepe-dark-color-on-surface)
+  );
+  --crepe-color-on-surface-variant: var(
+    --blintz-color-on-surface-variant,
+    var(--crepe-dark-color-on-surface-variant)
+  );
+  --crepe-color-outline: var(
+    --blintz-color-outline,
+    var(--crepe-dark-color-outline)
+  );
+  --crepe-color-primary: var(
+    --blintz-color-primary,
+    var(--crepe-dark-color-primary)
+  );
+  --crepe-color-secondary: var(
+    --blintz-color-secondary,
+    var(--crepe-dark-color-secondary)
+  );
+  --crepe-color-on-secondary: var(
+    --blintz-color-on-secondary,
+    var(--crepe-dark-color-on-secondary)
+  );
+  --crepe-color-inverse: var(
+    --blintz-color-inverse,
+    var(--crepe-dark-color-inverse)
+  );
+  --crepe-color-on-inverse: var(
+    --blintz-color-on-inverse,
+    var(--crepe-dark-color-on-inverse)
+  );
+  --crepe-color-inline-code: var(
+    --blintz-color-inline-code,
+    var(--crepe-dark-color-inline-code)
+  );
+  --crepe-color-error: var(--blintz-color-error, var(--crepe-dark-color-error));
+  --crepe-color-hover: var(--blintz-color-hover, var(--crepe-dark-color-hover));
+  --crepe-color-selected: var(
+    --blintz-color-selected,
+    var(--crepe-dark-color-selected)
+  );
+  --crepe-color-inline-area: var(
+    --blintz-color-inline-area,
+    var(--crepe-dark-color-inline-area)
+  );
+  --crepe-shadow-1: var(--blintz-shadow-1, var(--crepe-dark-shadow-1));
+  --crepe-shadow-2: var(--blintz-shadow-2, var(--crepe-dark-shadow-2));
+  --blintz-syntax-keyword: var(--blintz-code-keyword, #d4a7ec);
+  --blintz-syntax-string: var(--blintz-code-string, #9acb9a);
+  --blintz-syntax-number: var(--blintz-code-number, #e8bb86);
+  --blintz-syntax-comment: var(--blintz-code-comment, #9ba6b3);
+  --blintz-syntax-function: var(--blintz-code-function, #a4c7ef);
+  --blintz-syntax-type: var(--blintz-code-type, #e6aac5);
+  --blintz-syntax-operator: var(--blintz-code-operator, #b5c0ce);
 }

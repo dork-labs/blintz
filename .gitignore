@@ -8,3 +8,5 @@ coverage/
 .env
 .env.*
 *.log
+playwright-report/
+test-results/

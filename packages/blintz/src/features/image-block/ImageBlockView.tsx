@@ -2,7 +2,7 @@ import { useNodeViewContext } from "@prosemirror-adapter/react";
 import { useEffect, useState } from "react";
 
 import { sanitize } from "../../shared/sanitize";
-import { useEditorCtx } from "../../shared/editor-ctx";
+import { useEditorCtx, useEditorEditable } from "../../shared/editor-ctx";
 import { ImageInput } from "./ImageInput";
 import { ImageViewer } from "./ImageViewer";
 import { imageBlockConfig } from "./config";
@@ -31,7 +31,7 @@ export function ImageBlockView() {
     caption: string;
     ratio: number;
   };
-  const readonly = !view.editable;
+  const readonly = !useEditorEditable(view);
 
   // `proxyDomURL` may return a string OR a Promise — resolve it in an effect
   // keyed on `src` (mirrors the Vue `bindAttrs`). Falls back to the raw src.

@@ -1,50 +1,78 @@
-/* Ported from crepe/src/theme/common/list-item.css. */
-.milkdown {
-  .milkdown-list-item-block {
-    display: block;
-    padding: 0;
+/* One semantic list item and one visible marker. The content owns its rhythm. */
+.milkdown .ProseMirror :where(ul, ol) {
+  list-style: none;
+  padding: 0;
+}
+.milkdown .milkdown-list-item-block {
+  display: block;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.milkdown .milkdown-list-item-block::marker {
+  content: "";
+}
+.milkdown .milkdown-list-item-block > .milkdown-list-item-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4em;
+}
+.milkdown .milkdown-list-item-block > .milkdown-list-item-content > .children {
+  min-width: 0;
+  flex: 1;
+}
+.milkdown .milkdown-list-item-block .label-wrapper {
+  color: var(--crepe-color-on-surface-variant);
+  flex: 0 0 1.6em;
+  min-height: 1.65em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+.milkdown .milkdown-list-item-block .label {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  line-height: 1.65;
+  font-variant-numeric: tabular-nums;
+}
+.milkdown .milkdown-list-item-block .label svg {
+  width: 1.1em;
+  height: 1.1em;
+}
+.milkdown .milkdown-list-item-block .label.bullet svg {
+  width: 0.9em;
+  height: 0.9em;
+}
+.milkdown .milkdown-list-item-block .task-checkbox {
+  cursor: pointer;
+  border-radius: 4px;
+}
+.milkdown .milkdown-list-item-block .task-checkbox:hover:not(:disabled) {
+  color: var(--crepe-color-primary);
+  background: var(--crepe-color-hover);
+}
+.milkdown .milkdown-list-item-block .task-checkbox:disabled {
+  cursor: default;
+}
+.milkdown .milkdown-list-item-block .task-checkbox[aria-checked="true"] {
+  color: var(--crepe-color-primary);
+}
+.milkdown .milkdown-list-item-block .children > :where(div) > * + * {
+  margin-block-start: 0.5em;
+}
+.milkdown .milkdown-list-item-block .children > :where(div) > :where(ul, ol) {
+  margin-block-start: 0.2em;
+}
+.milkdown .milkdown-list-item-block + .milkdown-list-item-block {
+  margin-block-start: 0.2em;
+}
 
-    & > .list-item {
-      display: flex;
-      align-items: flex-start;
-    }
-
-    & > .list-item > .children {
-      min-width: 0;
-      flex: 1;
-    }
-
-    li {
-      gap: 10px;
-
-      .label-wrapper {
-        color: var(--crepe-color-outline);
-        height: 32px;
-        width: 24px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-
-        svg {
-          color: var(--crepe-color-outline);
-        }
-
-        .label {
-          height: 32px;
-          padding: 4px 0;
-          width: 24px;
-          text-align: right;
-        }
-
-        .checked,
-        .unchecked {
-          cursor: pointer;
-        }
-
-        .readonly {
-          cursor: not-allowed;
-        }
-      }
-    }
-  }
+.milkdown
+  .ProseMirror
+  :where(ul, ol)[data-spread="true"]
+  > .milkdown-list-item-block
+  + .milkdown-list-item-block {
+  margin-block-start: 0.7em;
 }

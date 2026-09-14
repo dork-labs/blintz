@@ -1,10 +1,11 @@
 import { Fragment, useMemo } from "react";
-import { EditorStatus, editorCtx } from "@milkdown/kit/core";
+import { EditorStatus, editorCtx, editorViewCtx } from "@milkdown/kit/core";
 import { usePluginViewContext } from "@prosemirror-adapter/react";
 
 import { Icon } from "../../shared/Icon";
 import { cx } from "../../shared/cx";
 import { useEditorCtx } from "../../shared/editor-ctx";
+import { syncToolbarSelection } from "./sync-selection";
 import { buildToolbarGroups } from "./config";
 
 /**
@@ -36,10 +37,19 @@ export function Toolbar() {
             <button
               key={item.key}
               type="button"
+              aria-label={item.label}
+              title={item.label}
+              aria-pressed={item.active(ctx)}
               className={cx("toolbar-item", item.active(ctx) && "active")}
               // Pointerdown + preventDefault so the editor selection survives.
+              onFocus={() => syncToolbarSelection(ctx.get(editorViewCtx))}
               onPointerDown={(e) => {
                 e.preventDefault();
+                syncToolbarSelection(ctx.get(editorViewCtx));
+              }}
+              onClick={() => {
+                const view = ctx.get(editorViewCtx);
+                syncToolbarSelection(view);
                 item.onRun?.(ctx);
               }}
             >

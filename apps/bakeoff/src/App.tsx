@@ -36,15 +36,15 @@ export default function App() {
   );
   const diff = useMemo(() => diffMarkdown(SEED_MARKDOWN, markdown), [markdown]);
 
-  // Remount the active editor when the panel or theme changes, so imperative
-  // editors (Milkdown) and prop-seeded ones get a clean slate per selection.
-  const panelKey = `${active.id}:${theme}`;
+  // Theme changes stay live: preserve selection, history, and document state.
+  const panelKey = active.id;
 
   return (
     <div className="app">
       <header className="topbar">
         <div className="topbar-title">
           <h1>Blintz bakeoff</h1>
+          <a href="/playground">Open the writing room →</a>
           <p className="subtitle">
             Edit the same content in 5 React markdown editors. Watch the{" "}
             <strong>Markdown output</strong> panel to judge round-trip fidelity,
@@ -81,7 +81,9 @@ export default function App() {
         <section className="editor-col">
           <div className="panel-meta">
             <div>
-              <span className={`kind-pill kind-${active.id}`}>{active.kind}</span>
+              <span className={`kind-pill kind-${active.id}`}>
+                {active.kind}
+              </span>
               {active.roundTrip === "lossy" && (
                 <span className="warn-pill">
                   ⚠ markdown export is explicitly lossy, expect drift
@@ -128,8 +130,8 @@ export default function App() {
       <ComparisonTable activeId={activeId} />
 
       <footer className="footer">
-        Each editor mounts lazily, only when selected. Shared markdown state lives
-        in <code>App.tsx</code>; the seed is in <code>src/seed.ts</code>.
+        Each editor mounts lazily, only when selected. Shared markdown state
+        lives in <code>App.tsx</code>; the seed is in <code>src/seed.ts</code>.
       </footer>
     </div>
   );

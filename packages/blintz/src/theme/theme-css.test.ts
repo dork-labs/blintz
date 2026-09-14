@@ -1,68 +1,61 @@
-/**
- * Built-CSS guard for the two theme-correctness rules that a refactor could
- * silently drop (both were regressions once): the ROOT PAINT (`.milkdown` sets
- * its own background/text from the tokens — the paint Crepe's reset.css did,
- * lost in the port) and the EXPLICIT-LIGHT re-assertion (a `.light` /
- * `[data-theme=light]` ancestor beats a dark OS preference).
- *
- * CSS is hard to unit-test, so this asserts against the SHIPPED artifact
- * (`dist/blintz.css`, the `blintz/styles.css` export) after the Vite build —
- * catching a drop anywhere in the source-to-bundle pipeline, not just the
- * source. The release/verify flow always builds; this only builds on demand
- * when the artifact is missing (e.g. a fresh checkout).
- */
-import { execSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import { beforeAll, describe, expect, it } from "vitest";
+/// <reference types="node" />
+import { readFileSync } from "node:fs";
+import { describe, expect, it } from "vitest";
 
-const PKG_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const CSS_PATH = resolve(PKG_ROOT, "dist/blintz.css");
+const source = (name: string) =>
+  readFileSync(new URL(name, import.meta.url), "utf8");
 
-let css = "";
-
-beforeAll(() => {
-  if (!existsSync(CSS_PATH)) {
-    execSync("npm run build", { cwd: PKG_ROOT, stdio: "inherit" });
-  }
-  css = readFileSync(CSS_PATH, "utf8");
-}, 120_000);
-
-describe("built theme CSS", () => {
-  it("paints the .milkdown root from the background/text tokens", () => {
-    // A rule ON `.milkdown` (not a descendant `.milkdown .x`) that sets both
-    // background and color from the live tokens. `[^{}]*` stays inside one rule.
-    expect(css).toMatch(
-      /\.milkdown\s*\{[^{}]*background:\s*var\(--crepe-color-background\)/,
-    );
-    expect(css).toMatch(
-      /\.milkdown\s*\{[^{}]*color:\s*var\(--crepe-color-on-background\)/,
-    );
+// Browser tests own colors and layout. These guard the package boundary: the
+// library must not import an application reset or shadow its public inputs.
+describe("theme isolation", () => {
+  it("does not pull Nord's global Tailwind reset into the editor", () => {
+    expect(source("../MarkdownEditor.tsx")).not.toContain("theme-nord");
+    expect(source("../useBlintzEditor.ts")).not.toContain("theme-nord");
+    expect(source("./index.css")).toContain('"./prose.css"');
   });
 
-  it("ships an explicit-light block that re-maps to the light tokens", () => {
-    expect(css).toMatch(
-      /:where\(\.light,\s*\[data-theme=light\]\)\s+\.milkdown\s*\{/,
-    );
-    // It re-asserts light by mapping a live token onto the `--crepe-light-*`
-    // alias (not a hand-written literal).
-    expect(css).toMatch(
-      /:where\(\.light,\s*\[data-theme=light\]\)\s+\.milkdown\s*\{[^{}]*--crepe-color-background:\s*var\(--crepe-light-color-background\)/,
-    );
+  it("only reads public host theme inputs; it never declares them locally", () => {
+    const vars = source("./vars.css");
+    expect(vars).toMatch(/var\(\s*--blintz-color-background\s*,/);
+    expect(vars).toMatch(/var\(\s*--blintz-font-default\s*,/);
+    expect(vars).not.toMatch(/--blintz-(?:color|font|code)-[\w-]+\s*:/);
   });
 
-  it("declares explicit-light AFTER explicit-dark so it can beat OS dark", () => {
-    // The explicit-dark selector follows the dark `@media` block in source, so
-    // "explicit-light after explicit-dark" implies "after the dark media block"
-    // — the source order that lets an explicit light signal win over OS dark.
-    const darkIdx = css.search(
-      /:where\(\.dark,\s*\[data-theme=dark\]\)\s+\.milkdown\s*\{/,
+  it("does not ship the static dark CodeMirror palette", () => {
+    expect(source("../features/code-block/index.ts")).not.toContain("oneDark");
+    expect(source("../features/code-block/theme.ts")).toContain(
+      "var(--blintz-syntax-keyword)",
     );
-    const lightIdx = css.search(
-      /:where\(\.light,\s*\[data-theme=light\]\)\s+\.milkdown\s*\{/,
+  });
+  it("uses an opaque readable placeholder in both default palettes", () => {
+    const placeholder = source("./placeholder.css");
+    expect(placeholder).toMatch(
+      /color:\s*var\(--crepe-color-on-surface-variant\)/,
     );
-    expect(darkIdx).toBeGreaterThan(-1);
-    expect(lightIdx).toBeGreaterThan(darkIdx);
+    expect(placeholder).not.toMatch(/color-mix|transparent|opacity:/);
+    const vars = source("./vars.css");
+    const luminance = (hex: string) => {
+      const channels = hex.match(/[a-f\d]{2}/gi)!.map((value) => {
+        const channel = parseInt(value, 16) / 255;
+        return channel <= 0.04045
+          ? channel / 12.92
+          : ((channel + 0.055) / 1.055) ** 2.4;
+      });
+      return (
+        channels[0]! * 0.2126 + channels[1]! * 0.7152 + channels[2]! * 0.0722
+      );
+    };
+    for (const theme of ["light", "dark"]) {
+      const color = (name: string) =>
+        vars.match(
+          new RegExp(`--crepe-${theme}-color-${name}:\\s*(#[a-fA-F0-9]{6})`),
+        )![1]!;
+      const foreground = luminance(color("on-surface-variant"));
+      const background = luminance(color("background"));
+      expect(
+        (Math.max(foreground, background) + 0.05) /
+          (Math.min(foreground, background) + 0.05),
+      ).toBeGreaterThanOrEqual(4.5);
+    }
   });
 });

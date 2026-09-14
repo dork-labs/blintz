@@ -85,12 +85,16 @@ export function ImageInput({
       });
   };
 
+  if (readonly)
+    return <span className="image-unavailable">Image unavailable</span>;
+
   return (
     <div className={cx("image-edit", className)}>
       <Icon className="image-icon" icon={imageIcon} />
       <div className={cx("link-importer", focusLinkInput && "focus")}>
         <input
           ref={linkInputRef}
+          aria-label="Image address"
           draggable="true"
           onDragStart={(e) => {
             e.preventDefault();
@@ -109,6 +113,7 @@ export function ImageInput({
             <input
               disabled={readonly}
               className="hidden"
+              aria-label="Upload image"
               id={uuid}
               type="file"
               accept="image/*"
@@ -139,9 +144,14 @@ export function ImageInput({
               }
             />
           </div>
-          <div className="confirm" onClick={() => onConfirmLinkInput()}>
+          <button
+            type="button"
+            aria-label="Insert image"
+            className="confirm"
+            onClick={() => onConfirmLinkInput()}
+          >
             <Icon icon={confirmButton} />
-          </div>
+          </button>
         </>
       )}
     </div>

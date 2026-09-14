@@ -105,6 +105,13 @@ export function tableFeature(
       // PM must ignore drag/drop + our chrome's pointer interactions; on a
       // cell-targeted mousedown/pointerdown we set a cell NodeSelection ourselves.
       stopEvent: (e) => {
+        // Keyboard events from real controls belong to those controls. Letting
+        // Enter reach ProseMirror consumes it before the button can click.
+        if (
+          e.target instanceof Element &&
+          e.target.closest("button, input, .milkdown-table-actions")
+        )
+          return true;
         if (e.type === "drop" || e.type.startsWith("drag")) return true;
 
         if (e.type === "mousedown" || e.type === "pointerdown") {
@@ -116,10 +123,7 @@ export function tableFeature(
             target instanceof HTMLElement &&
             (target.closest("th") || target.closest("td"))
           ) {
-            return handleCellClick(
-              ctx.get(editorViewCtx),
-              e as PointerEvent,
-            );
+            return handleCellClick(ctx.get(editorViewCtx), e as PointerEvent);
           }
         }
 

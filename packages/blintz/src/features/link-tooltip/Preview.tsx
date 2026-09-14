@@ -1,4 +1,4 @@
-import type { PointerEvent as ReactPointerEvent } from "react";
+import type { MouseEvent as ReactPointerEvent } from "react";
 import { useSyncExternalStore } from "react";
 
 import { Icon } from "../../shared/Icon";
@@ -62,24 +62,36 @@ export function LinkPreview() {
 
   return (
     <div className="link-preview">
-      <Icon
+      <button
+        type="button"
         className="button link-icon"
-        icon={config.linkIcon}
-        onPointerDown={onCopy}
-      />
+        aria-label="Copy link"
+        onPointerDown={(e) => e.preventDefault()}
+        onClick={onCopy}
+      >
+        <Icon icon={config.linkIcon} />
+      </button>
       <a href={href} target="_blank" rel="noreferrer" className="link-display">
         {href}
       </a>
-      <Icon
+      <button
+        type="button"
         className="button link-edit-button"
-        icon={config.editButton}
-        onPointerDown={onClickEdit}
-      />
-      <Icon
+        aria-label="Edit link"
+        onPointerDown={(e) => e.preventDefault()}
+        onClick={onClickEdit}
+      >
+        <Icon icon={config.editButton} />
+      </button>
+      <button
+        type="button"
         className="button link-remove-button"
-        icon={config.removeButton}
-        onPointerDown={onClickRemove}
-      />
+        aria-label="Remove link"
+        onPointerDown={(e) => e.preventDefault()}
+        onClick={onClickRemove}
+      >
+        <Icon icon={config.removeButton} />
+      </button>
     </div>
   );
 }

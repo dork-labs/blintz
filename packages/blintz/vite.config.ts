@@ -7,8 +7,8 @@ import dts from "vite-plugin-dts";
 //
 // Everything in `dependencies` / `peerDependencies` stays EXTERNAL (consumers
 // install them; keeps React a single copy), so only our own `src` is bundled.
-// CSS is the exception — the component imports its theme (`./theme/index.css`,
-// `@milkdown/theme-nord/style.css`, the prose/table CSS), and Vite extracts all
+// CSS is the exception — the component imports its scoped theme and node styles
+// through `./theme/index.css`, and Vite extracts all
 // of it into a single `dist/blintz.css` (the `./styles.css` export).
 export default defineConfig({
   plugins: [

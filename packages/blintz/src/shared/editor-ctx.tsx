@@ -1,4 +1,4 @@
-import { createContext, useContext } from "react";
+import { createContext, useContext, useSyncExternalStore } from "react";
 import type { Ctx } from "@milkdown/kit/ctx";
 
 /**
@@ -32,4 +32,19 @@ export function useEditorCtx(): Ctx {
     throw new Error("Milkdown ctx is not ready yet");
   }
   return holder.current;
+}
+
+/** Subscribe node views to editability changes even when their document node
+ * stays identical and ProseMirror does not ask the adapter to redraw it. */
+export function useEditorEditable(
+  view: import("@milkdown/kit/prose/view").EditorView,
+): boolean {
+  return useSyncExternalStore(
+    (notify) => {
+      view.dom.addEventListener("blintz:editable", notify);
+      return () => view.dom.removeEventListener("blintz:editable", notify);
+    },
+    () => view.editable,
+    () => view.editable,
+  );
 }

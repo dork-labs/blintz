@@ -1,5 +1,5 @@
 import type { Ctx } from "@milkdown/kit/ctx";
-import type { PointerEvent as ReactPointerEvent } from "react";
+import type { MouseEvent as ReactPointerEvent } from "react";
 
 import { commandsCtx, editorViewCtx } from "@milkdown/kit/core";
 import {

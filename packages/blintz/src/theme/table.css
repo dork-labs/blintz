@@ -16,12 +16,41 @@
   .milkdown-table-block {
     display: block;
     margin: 4px 0;
+    min-width: 0;
+    position: relative;
+    .table-wrapper {
+      position: relative;
+      overflow-x: auto;
+      overscroll-behavior-x: contain;
+      padding: 12px;
+      margin: -12px;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      min-width: 480px;
+      table-layout: fixed;
+    }
+    th,
+    td {
+      position: relative;
+      vertical-align: top;
+      min-width: 80px;
+    }
+    th {
+      background: var(--crepe-color-surface);
+      font-weight: 650;
+    }
+    th p,
+    td p {
+      margin: 0;
+    }
 
     th,
     td {
       border: 1px solid
         color-mix(in srgb, var(--crepe-color-outline), transparent 80%);
-      padding: 4px 16px;
+      padding: 10px 14px;
       .ProseMirror-selectednode {
         background-color: transparent !important;
       }
@@ -76,7 +105,7 @@
     }
 
     svg {
-      color: var(--crepe-color-outline);
+      color: var(--crepe-color-on-surface-variant);
     }
 
     .cell-handle {
@@ -88,7 +117,7 @@
       align-items: center;
       justify-content: center;
       background-color: var(--crepe-color-surface);
-      color: var(--crepe-color-outline);
+      color: var(--crepe-color-on-surface-variant);
       border-radius: 100px;
       box-shadow: var(--crepe-shadow-1);
       transition: background-color 0.2s ease-in-out;
@@ -186,7 +215,7 @@
       .add-button {
         cursor: pointer;
         background-color: var(--crepe-color-surface);
-        color: var(--crepe-color-outline);
+        color: var(--crepe-color-on-surface-variant);
         border-radius: 100px;
         box-shadow: var(--crepe-shadow-1);
         transition: background-color 0.2s ease-in-out;
@@ -234,8 +263,67 @@
       }
     }
 
-    &.readonly .handle {
+    &:has(> .readonly) .handle {
       display: none;
     }
+  }
+}
+
+/* One menu exposes the same operations without hover precision or dragging. */
+.milkdown .milkdown-table-actions {
+  position: absolute;
+  inset-inline-end: 0;
+  top: -30px;
+  z-index: 55;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.milkdown .milkdown-table-actions > button {
+  min-width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  color: var(--crepe-color-on-surface-variant);
+  background: var(--crepe-color-surface);
+  opacity: 0;
+}
+.milkdown
+  .milkdown-table-block:is(:hover, :focus-within)
+  .milkdown-table-actions
+  > button {
+  opacity: 1;
+}
+.milkdown .milkdown-table-actions-menu {
+  position: absolute;
+  top: 32px;
+  inset-inline-end: 0;
+  width: 200px;
+  padding: 6px;
+  border-radius: 10px;
+  background: var(--crepe-color-surface-low);
+  color: var(--crepe-color-on-surface);
+  box-shadow: var(--crepe-shadow-1);
+}
+.milkdown .milkdown-table-actions-menu button {
+  display: block;
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: 5px;
+  text-align: start;
+}
+.milkdown .milkdown-table-actions-menu button:is(:hover, :focus-visible) {
+  background: var(--crepe-color-hover);
+}
+.milkdown .milkdown-table-actions-menu button:disabled {
+  opacity: 0.4;
+}
+.milkdown .milkdown-table-actions-context {
+  padding: 6px 10px 8px;
+  font-size: 11px;
+  color: var(--crepe-color-on-surface-variant);
+}
+@media (hover: none) {
+  .milkdown .milkdown-table-actions > button {
+    opacity: 1;
+    min-width: 44px;
   }
 }

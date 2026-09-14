@@ -117,7 +117,10 @@ export class CodeMirrorController {
       // Pass the editor root so CM is correct under a shadow DOM / iframe.
       root: this.view.root,
       extensions: [
-        this.readOnlyConf.of(EditorState.readOnly.of(!this.view.editable)),
+        this.readOnlyConf.of([
+          EditorState.readOnly.of(!this.view.editable),
+          CodeMirror.editable.of(this.view.editable),
+        ]),
         drawSelection(),
         cmKeymap.of(this.codeMirrorKeymap()),
         this.languageConf.of([]),
@@ -203,18 +206,28 @@ export class CodeMirrorController {
       {
         key: "Mod-Enter",
         run: () => {
+          if (!view.editable) return false;
           if (!exitCode(view.state, view.dispatch)) return false;
           view.focus();
           return true;
         },
       },
-      { key: "Mod-z", run: () => undo(view.state, view.dispatch) },
-      { key: "Shift-Mod-z", run: () => redo(view.state, view.dispatch) },
-      { key: "Mod-y", run: () => redo(view.state, view.dispatch) },
+      {
+        key: "Mod-z",
+        run: () => view.editable && undo(view.state, view.dispatch),
+      },
+      {
+        key: "Shift-Mod-z",
+        run: () => view.editable && redo(view.state, view.dispatch),
+      },
+      {
+        key: "Mod-y",
+        run: () => view.editable && redo(view.state, view.dispatch),
+      },
       {
         key: "Backspace",
         run: () => {
-          if (!this.cm) return false;
+          if (!this.cm || !view.editable) return false;
           const ranges = this.cm.state.selection.ranges;
 
           if (ranges.length > 1) return false;
@@ -298,9 +311,10 @@ export class CodeMirrorController {
     this.updateLanguage();
     if (this.view.editable === this.cm.state.readOnly) {
       this.cm.dispatch({
-        effects: this.readOnlyConf.reconfigure(
+        effects: this.readOnlyConf.reconfigure([
           EditorState.readOnly.of(!this.view.editable),
-        ),
+          CodeMirror.editable.of(this.view.editable),
+        ]),
       });
     }
 
@@ -338,7 +352,10 @@ function computeChange(
   let oldEnd = oldVal.length;
   let newEnd = newVal.length;
 
-  while (start < oldEnd && oldVal.charCodeAt(start) === newVal.charCodeAt(start))
+  while (
+    start < oldEnd &&
+    oldVal.charCodeAt(start) === newVal.charCodeAt(start)
+  )
     ++start;
 
   while (

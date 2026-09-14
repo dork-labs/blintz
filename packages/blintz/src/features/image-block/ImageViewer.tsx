@@ -1,4 +1,7 @@
-import type { PointerEvent as ReactPointerEvent } from "react";
+import type {
+  MouseEvent as ReactMouseEvent,
+  PointerEvent as ReactPointerEvent,
+} from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Icon } from "../../shared/Icon";
@@ -51,7 +54,8 @@ export function ImageViewer({
     let maxWidth = host.getBoundingClientRect().width;
     if (!maxWidth) return;
 
-    if (config.maxWidth && config.maxWidth < maxWidth) maxWidth = config.maxWidth;
+    if (config.maxWidth && config.maxWidth < maxWidth)
+      maxWidth = config.maxWidth;
 
     const height = image.naturalHeight;
     const width = image.naturalWidth;
@@ -69,7 +73,7 @@ export function ImageViewer({
     if (config.maxWidth) image.style.maxWidth = `${config.maxWidth}px`;
   };
 
-  const onToggleCaption = (e: ReactPointerEvent) => {
+  const onToggleCaption = (e: ReactMouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (readonly) return;
@@ -94,18 +98,22 @@ export function ImageViewer({
     setAttr("caption", value);
   };
 
-  const onResizeHandlePointerMove = useCallback((e: PointerEvent) => {
-    e.preventDefault();
-    const image = imageRef.current;
-    if (!image) return;
-    const top = image.getBoundingClientRect().top;
-    let height = e.clientY - top;
-    if (height < 100) height = 100;
-    if (config.maxHeight && height > config.maxHeight) height = config.maxHeight;
-    const h = Number(height).toFixed(2);
-    image.dataset.height = h;
-    image.style.height = `${h}px`;
-  }, [config.maxHeight]);
+  const onResizeHandlePointerMove = useCallback(
+    (e: PointerEvent) => {
+      e.preventDefault();
+      const image = imageRef.current;
+      if (!image) return;
+      const top = image.getBoundingClientRect().top;
+      let height = e.clientY - top;
+      if (height < 100) height = 100;
+      if (config.maxHeight && height > config.maxHeight)
+        height = config.maxHeight;
+      const h = Number(height).toFixed(2);
+      image.dataset.height = h;
+      image.style.height = `${h}px`;
+    },
+    [config.maxHeight],
+  );
 
   const onResizeHandlePointerUp = useCallback(() => {
     window.removeEventListener("pointermove", onResizeHandlePointerMove);
@@ -144,11 +152,19 @@ export function ImageViewer({
   return (
     <>
       <div className="image-wrapper">
-        <div className="operation">
-          <div className="operation-item" onPointerDown={onToggleCaption}>
-            <Icon icon={config.captionIcon} />
+        {!readonly && (
+          <div className="operation">
+            <button
+              type="button"
+              aria-label="Toggle image caption"
+              aria-pressed={showCaption}
+              className="operation-item"
+              onClick={onToggleCaption}
+            >
+              <Icon icon={config.captionIcon} />
+            </button>
           </div>
-        </div>
+        )}
         <img
           ref={imageRef}
           data-type={IMAGE_DATA_TYPE}
@@ -161,24 +177,33 @@ export function ImageViewer({
             )
           }
         />
-        <div
-          className="image-resize-handle"
-          onPointerDown={onResizeHandlePointerDown}
-        />
+        {!readonly && (
+          <div
+            className="image-resize-handle"
+            onPointerDown={onResizeHandlePointerDown}
+          />
+        )}
       </div>
-      {showCaption && (
-        <input
-          draggable="true"
-          onDragStart={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-          }}
-          className="caption-input"
-          placeholder={config?.captionPlaceholderText}
-          onChange={onInputCaption}
-          onBlur={onBlurCaption}
-          defaultValue={caption}
-        />
+      {readonly ? (
+        caption ? (
+          <div className="caption-input">{caption}</div>
+        ) : null
+      ) : (
+        showCaption && (
+          <input
+            aria-label="Image caption"
+            draggable="true"
+            onDragStart={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            className="caption-input"
+            placeholder={config?.captionPlaceholderText}
+            onChange={onInputCaption}
+            onBlur={onBlurCaption}
+            defaultValue={caption}
+          />
+        )
       )}
     </>
   );

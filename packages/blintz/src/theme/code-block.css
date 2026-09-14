@@ -8,7 +8,10 @@
   .milkdown-code-block {
     display: block;
     position: relative;
-    padding: 8px 20px 20px;
+    padding: 12px 16px 16px;
+    border-radius: 10px;
+    min-width: 0;
+    font-size: 14px;
     background: var(--crepe-color-surface);
     margin: 4px 0;
 
@@ -56,7 +59,7 @@
       background: var(--crepe-color-surface);
       color: var(--crepe-color-on-surface);
       input {
-        caret-color: var(--crepe-color-outline);
+        caret-color: var(--crepe-color-on-surface-variant);
         border-radius: 4px;
         background: var(--crepe-color-surface-low);
       }
@@ -117,7 +120,7 @@
       align-items: center;
 
       input {
-        caret-color: var(--crepe-color-outline);
+        caret-color: var(--crepe-color-on-surface-variant);
       }
 
       .tools-button-group {
@@ -171,8 +174,8 @@
         font-size: 12px;
         font-weight: 600;
         line-height: 16px;
-        margin-bottom: 8px;
-        opacity: 0;
+        margin-bottom: 4px;
+        opacity: 1;
         cursor: pointer;
         transition: opacity 0.2s ease-in-out;
 
@@ -192,7 +195,7 @@
         .expand-icon svg {
           width: 14px;
           height: 14px;
-          color: var(--crepe-color-outline);
+          color: var(--crepe-color-on-surface-variant);
         }
 
         &[data-expanded="true"] .expand-icon {
@@ -206,11 +209,11 @@
       }
     }
 
-    &:hover .language-button {
+    &:is(:hover, :focus-within) .language-button {
       opacity: 1;
     }
 
-    &:hover .tools-button-group > button {
+    &:is(:hover, :focus-within) .tools-button-group > button {
       opacity: 1;
     }
 
@@ -340,4 +343,20 @@
       }
     }
   }
+}
+
+@media (hover: none) {
+  .milkdown .milkdown-code-block .language-button,
+  .milkdown .milkdown-code-block .tools-button-group > button {
+    opacity: 1;
+  }
+}
+
+.milkdown .milkdown-code-block .language-button:disabled {
+  background: transparent;
+  padding-inline-start: 0;
+  cursor: default;
+}
+.milkdown .milkdown-code-block .language-button:disabled .expand-icon {
+  display: none;
 }

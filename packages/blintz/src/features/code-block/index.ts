@@ -1,7 +1,7 @@
 import { defaultKeymap, indentWithTab } from "@codemirror/commands";
 import { languages } from "@codemirror/language-data";
 import type { Extension } from "@codemirror/state";
-import { oneDark } from "@codemirror/theme-one-dark";
+import { codeTheme } from "./theme";
 import { keymap } from "@codemirror/view";
 import { basicSetup } from "codemirror";
 import type { Editor } from "@milkdown/kit/core";
@@ -91,7 +91,7 @@ export function codeMirrorFeature(
       const extensions: Extension[] = [
         keymap.of(defaultKeymap.concat(indentWithTab)),
         basicSetup,
-        oneDark,
+        codeTheme,
       ];
 
       ctx.update(codeBlockConfig.key, () => ({
