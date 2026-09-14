@@ -2,7 +2,7 @@ import { useNodeViewContext } from "@prosemirror-adapter/react";
 import { useEffect, useState } from "react";
 
 import { sanitize } from "../../shared/sanitize";
-import { useEditorCtx } from "../../shared/editor-ctx";
+import { useEditorCtx, useEditorEditable } from "../../shared/editor-ctx";
 import { ImageInput } from "./ImageInput";
 import { inlineImageConfig } from "./config";
 
@@ -26,7 +26,7 @@ export function ImageInlineView() {
     alt: string;
     title: string;
   };
-  const readonly = !view.editable;
+  const readonly = !useEditorEditable(view);
 
   // `proxyDomURL` may return string OR Promise — resolve in an effect keyed on src.
   const [displaySrc, setDisplaySrc] = useState(src);

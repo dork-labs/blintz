@@ -52,7 +52,7 @@
       svg {
         height: 24px;
         width: 24px;
-        color: var(--crepe-color-outline);
+        color: var(--crepe-color-on-surface-variant);
       }
 
       &.active svg {

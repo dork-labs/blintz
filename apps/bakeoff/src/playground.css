@@ -1,0 +1,159 @@
+.specimen-app {
+  max-width: 1120px;
+  margin: auto;
+  padding: 28px 32px 48px;
+}
+.specimen-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.specimen-brand {
+  color: var(--text);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+.specimen-kicker {
+  color: var(--text-dim);
+  margin-left: 6px;
+}
+.specimen-header button,
+.specimen-controls button,
+.specimen-controls select {
+  color: var(--text);
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font: inherit;
+  min-height: 36px;
+  padding: 6px 12px;
+}
+:is(.specimen-header, .specimen-controls) button:hover {
+  background: var(--bg-elev-2);
+}
+.specimen-controls button[aria-pressed="true"] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.specimen-app :is(button, select, textarea):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.specimen-intro {
+  margin: 56px 0 32px;
+}
+.specimen-intro h1 {
+  font-size: clamp(28px, 4vw, 40px);
+  font-weight: 600;
+  letter-spacing: -0.045em;
+  margin: 0 0 8px;
+  line-height: 1.2;
+}
+.specimen-intro p {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 16px;
+}
+.specimen-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 0 20px;
+}
+.specimen-controls label {
+  display: grid;
+  gap: 5px;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+.specimen-controls select {
+  font-size: 14px;
+}
+.specimen-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.specimen-stage {
+  display: grid;
+  gap: 20px;
+}
+.specimen-paper {
+  min-width: 0;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 8px 32px rgb(0 0 0 / 0.025);
+}
+.specimen-paper .milkdown-editor-host {
+  --blintz-padding: 2.5rem 2.5rem 3rem;
+}
+.specimen-stage.is-narrow .specimen-paper {
+  max-width: 390px;
+  width: 100%;
+  margin: auto;
+}
+.specimen-source {
+  min-width: 0;
+  padding: 20px;
+  border-radius: 12px;
+  background: var(--bg-elev);
+}
+.specimen-source label {
+  display: block;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+}
+.specimen-source textarea {
+  width: 100%;
+  min-height: 320px;
+  padding: 16px;
+  resize: vertical;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font: 13px/1.65 var(--font-mono);
+  color: var(--text);
+  background: var(--bg);
+}
+.specimen-status {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 14px;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+.specimen-footer {
+  margin-top: 48px;
+  color: var(--text-dim);
+  font-size: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+}
+@media (max-width: 600px) {
+  .specimen-app {
+    padding: 20px 16px 32px;
+  }
+  .specimen-kicker {
+    font-size: 12px;
+  }
+  .specimen-intro {
+    margin: 36px 0 24px;
+  }
+  .specimen-header button,
+  .specimen-controls button,
+  .specimen-controls select {
+    min-height: 44px;
+  }
+  .specimen-options {
+    gap: 8px;
+  }
+  .specimen-paper {
+    border-radius: 10px;
+  }
+}

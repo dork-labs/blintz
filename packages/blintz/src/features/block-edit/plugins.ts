@@ -229,6 +229,13 @@ function configureMenu(ctx: Ctx, pluginViewFactory: PluginViewFactory) {
       provider.update(editorView);
       return {
         update: (view, prevState) => {
+          // Filtering is part of keyboard behavior, not floating geometry.
+          // Publish it immediately; the provider still debounces positioning.
+          const text = provider?.getContent(view, (node) =>
+            ["paragraph", "heading"].includes(node.type.name),
+          );
+          if (text != null)
+            store.set({ filter: text.startsWith("/") ? text.slice(1) : text });
           inner.update?.(view, prevState);
           provider?.update(view, prevState);
         },

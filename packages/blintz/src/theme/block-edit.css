@@ -1,7 +1,7 @@
 /*
  * block-edit — block handle + slash menu. Ported from Crepe
  * (`crepe/src/theme/common/block-edit.css`), scoped under `.milkdown`, keyed on
- * the exact class names the React components emit so theme-nord + the
+ * the exact class names the React components emit so the scoped prose theme + the
  * `--crepe-*` vars style them unchanged. Visibility is driven by the providers
  * toggling `data-show` (floating-ui writes inline left/top).
  */
@@ -18,10 +18,6 @@
    */
   position: relative;
 
-  .ProseMirror {
-    padding-left: var(--crepe-block-handle-gutter, 5.5rem);
-  }
-
   .milkdown-block-handle {
     &[data-show="false"] {
       opacity: 0;
@@ -37,14 +33,14 @@
 
     .operation-item {
       border-radius: 4px;
-      width: 32px;
-      height: 32px;
+      width: 24px;
+      height: 28px;
       padding: 4px;
 
       svg {
-        width: 24px;
-        height: 24px;
-        color: var(--crepe-color-outline);
+        width: 16px;
+        height: 20px;
+        color: var(--crepe-color-on-surface-variant);
       }
 
       &:hover {
@@ -144,7 +140,7 @@
           svg {
             width: 24px;
             height: 24px;
-            color: var(--crepe-color-outline);
+            color: var(--crepe-color-on-surface-variant);
           }
           & > span {
             font-size: 14px;

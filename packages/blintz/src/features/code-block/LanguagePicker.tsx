@@ -108,6 +108,9 @@ export function LanguagePicker({
         type="button"
         ref={triggerRef}
         className="language-button"
+        aria-label="Code language"
+        aria-expanded={showPicker}
+        disabled={getReadOnly()}
         onClick={onTogglePicker}
         data-expanded={String(showPicker)}
       >
@@ -127,10 +130,14 @@ export function LanguagePicker({
                 ref={searchRef}
                 className="search-input"
                 placeholder={config.searchPlaceholder}
+                aria-label={config.searchPlaceholder}
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Escape") setFilter("");
+                  if (e.key === "Escape") {
+                    setShowPicker(false);
+                    triggerRef.current?.focus();
+                  }
                 }}
               />
               <div
@@ -149,7 +156,10 @@ export function LanguagePicker({
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   const active = document.activeElement;
-                  if (active instanceof HTMLElement && active.dataset.language) {
+                  if (
+                    active instanceof HTMLElement &&
+                    active.dataset.language
+                  ) {
                     setLanguage(active.dataset.language);
                     setShowPicker(false);
                   }

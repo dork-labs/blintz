@@ -15,7 +15,6 @@ import { listener, listenerCtx } from "@milkdown/kit/plugin/listener";
 import { trailing } from "@milkdown/kit/plugin/trailing";
 import { upload } from "@milkdown/kit/plugin/upload";
 import { replaceAll } from "@milkdown/kit/utils";
-import { nord } from "@milkdown/theme-nord";
 import { useEditor, useInstance } from "@milkdown/react";
 import type {
   useNodeViewFactory,
@@ -123,10 +122,6 @@ export function useBlintzEditor({
           onChangeRef.current?.(md);
         });
       })
-      // Base prose typography. The visual theme is otherwise driven by the
-      // `--crepe-*` CSS custom properties (see theme/vars.css) — consumers
-      // re-theme by overriding those tokens, not by swapping this config.
-      .config(nord)
       // commonmark, minus its empty-line `<br />` round-trip hack (we store
       // clean markdown), plus a parse-time strip of legacy `<br />` artifacts.
       .use(commonmarkWithoutEmptyLinePreservation)
@@ -228,6 +223,7 @@ export function useBlintzEditor({
         view.setProps({
           editable: editablePredicate(() => editableRef.current),
         });
+        view.dom.dispatchEvent(new Event("blintz:editable"));
       });
     });
     return () => {

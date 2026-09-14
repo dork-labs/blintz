@@ -19,7 +19,7 @@
       background: transparent;
       outline: none;
       border: 0;
-      caret-color: var(--crepe-color-outline);
+      caret-color: var(--crepe-color-on-surface-variant);
     }
 
     & > .empty-image-inline {
@@ -90,7 +90,7 @@
       svg {
         width: 18px;
         height: 18px;
-        color: var(--crepe-color-outline);
+        color: var(--crepe-color-on-surface-variant);
       }
       padding: 3px;
       width: 24px;
@@ -195,7 +195,7 @@
       background: transparent;
       outline: none;
       border: 0;
-      caret-color: var(--crepe-color-outline);
+      caret-color: var(--crepe-color-on-surface-variant);
     }
 
     & > .caption-input {
@@ -244,7 +244,7 @@
     &.selected > .image-edit:not(:has(input:focus)) {
       position: relative;
       &::before {
-        content: '';
+        content: "";
         position: absolute;
         top: 0;
         left: 0;
@@ -263,7 +263,7 @@
       & > .image-wrapper {
         position: relative;
         &::before {
-          content: '';
+          content: "";
           position: absolute;
           top: 0;
           left: 0;
@@ -295,7 +295,7 @@
       transition: all 0.2s;
     }
 
-    &:hover > .image-wrapper .operation {
+    &:is(:hover, :focus-within) > .image-wrapper .operation {
       opacity: 1;
     }
 
@@ -342,7 +342,7 @@
     }
 
     .image-edit .image-icon {
-      color: var(--crepe-color-outline);
+      color: var(--crepe-color-on-surface-variant);
     }
 
     .image-edit .image-icon svg {
@@ -351,7 +351,7 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      color: var(--crepe-color-outline);
+      color: var(--crepe-color-on-surface-variant);
     }
 
     .image-edit .link-importer .placeholder {
@@ -408,5 +408,11 @@
           var(--crepe-color-secondary);
       }
     }
+  }
+}
+
+@media (hover: none) {
+  .milkdown .milkdown-image-block .image-wrapper .operation {
+    opacity: 1;
   }
 }

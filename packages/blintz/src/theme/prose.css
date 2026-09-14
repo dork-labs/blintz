@@ -1,0 +1,224 @@
+/* Reset only editor-owned elements. Importing Blintz never resets the app. */
+.milkdown-editor-host {
+  min-width: 0;
+  font-family: var(--blintz-font-default, ui-sans-serif, system-ui, sans-serif);
+}
+.milkdown {
+  position: relative;
+  min-width: 0;
+  background: var(--crepe-color-background);
+  color: var(--crepe-color-on-background);
+  font-family: var(--crepe-font-default);
+  font-size: var(--blintz-font-size, 16px);
+  line-height: 1.65;
+  text-align: start;
+  -webkit-font-smoothing: antialiased;
+}
+.milkdown :where(*, *::before, *::after) {
+  box-sizing: border-box;
+}
+.milkdown :where(button, input, textarea, select) {
+  font: inherit;
+  color: inherit;
+}
+.milkdown-editor-host .milkdown button {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+}
+.milkdown :where(button, input, textarea, select):focus-visible {
+  outline: 2px solid var(--crepe-color-primary);
+  outline-offset: 3px;
+}
+.milkdown :where(button:disabled) {
+  cursor: default;
+}
+.milkdown :where(svg) {
+  display: block;
+}
+.milkdown :where(ul, ol) {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.milkdown :where(h1, h2, h3, h4, h5, h6, p, blockquote, pre, hr) {
+  margin: 0;
+}
+.milkdown > .ProseMirror {
+  position: relative;
+  min-width: 0;
+  min-height: 8rem;
+  padding: var(--blintz-padding, 1.5rem 1.5rem 2rem);
+  padding-inline-start: var(--crepe-block-handle-gutter, 4.5rem);
+  outline: none;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  font-variant-ligatures: none;
+}
+.milkdown > .ProseMirror[contenteditable="false"] {
+  padding-inline-start: var(--blintz-readonly-padding, 1.5rem);
+}
+.milkdown .ProseMirror :where(p) {
+  line-height: 1.65;
+}
+.milkdown-editor-host
+  .milkdown
+  .ProseMirror
+  > :where(:not(.prosemirror-virtual-cursor, .ProseMirror-widget))
+  ~ :where(:not(.prosemirror-virtual-cursor, .ProseMirror-widget)) {
+  margin-block-start: 1em;
+}
+.milkdown .ProseMirror :where(h1, h2, h3, h4, h5, h6) {
+  color: var(--crepe-color-on-background);
+  font-family: var(--crepe-font-title);
+  font-weight: 650;
+  line-height: 1.25;
+  text-wrap: pretty;
+  letter-spacing: -0.025em;
+}
+.milkdown .ProseMirror :where(h1) {
+  font-size: 2em;
+  font-weight: 700;
+}
+.milkdown .ProseMirror :where(h2) {
+  font-size: 1.5em;
+}
+.milkdown .ProseMirror :where(h3) {
+  font-size: 1.25em;
+}
+.milkdown .ProseMirror :where(h4) {
+  font-size: 1.125em;
+}
+.milkdown .ProseMirror :where(h5) {
+  font-size: 1em;
+}
+.milkdown .ProseMirror :where(h6) {
+  font-size: 0.875em;
+  letter-spacing: 0;
+}
+.milkdown-editor-host
+  .milkdown
+  .ProseMirror
+  > :where(:not(.prosemirror-virtual-cursor, .ProseMirror-widget))
+  ~ :where(h1, h2, h3, h4, h5, h6) {
+  margin-block-start: 1.75em;
+}
+.milkdown-editor-host
+  .milkdown
+  .ProseMirror
+  > :where(h1, h2, h3, h4, h5, h6)
+  + * {
+  margin-block-start: 0.6em;
+}
+.milkdown .ProseMirror :where(strong) {
+  color: inherit;
+  font-weight: 650;
+}
+.milkdown .ProseMirror :where(em) {
+  font-style: italic;
+}
+.milkdown .ProseMirror :where(del) {
+  text-decoration: line-through;
+}
+.milkdown .ProseMirror :where(a) {
+  color: var(--crepe-color-primary);
+  text-decoration: underline;
+  text-decoration-thickness: 0.065em;
+  text-underline-offset: 0.18em;
+}
+.milkdown .ProseMirror :where(a:hover) {
+  text-decoration-thickness: 0.12em;
+}
+.milkdown .ProseMirror :where(code) {
+  color: var(--crepe-color-inline-code);
+  background: var(--crepe-color-inline-area);
+  border-radius: 0.3em;
+  padding: 0.15em 0.35em;
+  font-family: var(--crepe-font-code);
+  font-size: 0.875em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+.milkdown .ProseMirror :where(code)::before,
+.milkdown .ProseMirror :where(code)::after {
+  content: none;
+}
+.milkdown .ProseMirror :where(pre) {
+  white-space: pre-wrap;
+}
+.milkdown .ProseMirror :where(pre code) {
+  color: inherit;
+  background: transparent;
+  padding: 0;
+  font-size: inherit;
+}
+.milkdown .ProseMirror :where(blockquote) {
+  border-inline-start: 3px solid var(--crepe-color-outline);
+  padding-inline-start: 1em;
+  color: var(--crepe-color-on-surface-variant);
+}
+.milkdown .ProseMirror :where(blockquote > * + *) {
+  margin-block-start: 0.75em;
+}
+.milkdown .ProseMirror :where(blockquote p)::before,
+.milkdown .ProseMirror :where(blockquote p)::after {
+  content: none;
+}
+.milkdown .ProseMirror :where(hr) {
+  border: 0;
+  border-block-start: 1px solid var(--crepe-color-outline);
+  opacity: 0.4;
+  margin-block: 2em;
+}
+.milkdown .ProseMirror :where(img) {
+  max-width: 100%;
+  height: auto;
+}
+.milkdown .ProseMirror img.ProseMirror-separator {
+  display: inline;
+  border: 0;
+  margin: 0;
+}
+.milkdown .ProseMirror-selectednode {
+  outline: 2px solid var(--crepe-color-primary);
+  outline-offset: 2px;
+}
+.milkdown .ProseMirror-hideselection {
+  caret-color: transparent;
+}
+.milkdown .ProseMirror-hideselection ::selection {
+  background: transparent;
+}
+.milkdown ::selection {
+  background: var(--crepe-color-selected);
+}
+@media (max-width: 600px) {
+  .milkdown > .ProseMirror {
+    padding: 1rem;
+    padding-inline-start: var(--crepe-block-handle-gutter, 3.5rem);
+  }
+  .milkdown > .ProseMirror[contenteditable="false"] {
+    padding-inline-start: 1rem;
+  }
+  .milkdown .ProseMirror h1 {
+    font-size: 1.75em;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .milkdown *,
+  .milkdown *::before,
+  .milkdown *::after {
+    scroll-behavior: auto !important;
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* The caret is a decoration, not a paragraph: it cannot create an opening gap. */
+.milkdown-editor-host
+  .milkdown
+  .ProseMirror
+  > :nth-child(1 of :not(.prosemirror-virtual-cursor, .ProseMirror-widget)) {
+  margin-block-start: 0;
+}

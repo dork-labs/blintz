@@ -34,6 +34,8 @@ import {
 
 import { EditorCtxProvider } from "./shared/editor-ctx";
 import type { CtxHolder } from "./shared/editor-ctx";
+import { TextSelection } from "@milkdown/kit/prose/state";
+import { syncToolbarSelection } from "./features/toolbar/sync-selection";
 import { useBlintzEditor } from "./useBlintzEditor";
 import { slashStoreCtx } from "./features/block-edit/slices";
 
@@ -110,6 +112,14 @@ describe("reactive editable", () => {
   let root: Root;
 
   beforeEach(() => {
+    // jsdom has no layout. The virtual cursor asks for Range geometry after
+    // checkbox focus; layout itself is covered by the real-browser suite.
+    if (!Range.prototype.getClientRects) {
+      Range.prototype.getClientRects = () => [] as unknown as DOMRectList;
+    }
+    if (!Range.prototype.getBoundingClientRect) {
+      Range.prototype.getBoundingClientRect = () => new DOMRect();
+    }
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
@@ -126,11 +136,12 @@ describe("reactive editable", () => {
     ctxHolder: CtxHolder,
     editable: boolean,
     onChange?: (markdown: string) => void,
+    value = SEED,
   ) {
     await act(async () => {
       root.render(
         <Harness
-          value={SEED}
+          value={value}
           editable={editable}
           ctxHolder={ctxHolder}
           onChange={onChange}
@@ -143,12 +154,13 @@ describe("reactive editable", () => {
   async function mount(
     editable: boolean,
     onChange?: (markdown: string) => void,
+    value = SEED,
   ): Promise<{
     ctxHolder: CtxHolder;
     view: EditorView;
   }> {
     const ctxHolder: CtxHolder = { current: null };
-    await render(ctxHolder, editable, onChange);
+    await render(ctxHolder, editable, onChange, value);
     for (let i = 0; i < 100; i++) {
       const view = getView(ctxHolder);
       if (view) return { ctxHolder, view };
@@ -215,5 +227,68 @@ describe("reactive editable", () => {
 
     expect(onChange).not.toHaveBeenCalled();
     expect(markdownOf(ctxHolder)).toBe(before);
+  });
+  it("uses semantic list children and one accessible checkbox per task", async () => {
+    const { ctxHolder } = await mount(
+      true,
+      undefined,
+      "- First\n  - Nested\n\n- [ ] Review draft\n",
+    );
+    const lists = Array.from(container.querySelectorAll(".ProseMirror ul"));
+    expect(lists.length).toBeGreaterThan(1);
+    for (const list of lists) {
+      expect(
+        Array.from(list.children).every((child) => child.tagName === "LI"),
+      ).toBe(true);
+    }
+    const checkbox = container.querySelector<HTMLButtonElement>(
+      'button[role="checkbox"]',
+    );
+    expect(checkbox?.getAttribute("aria-label")).toBe("Review draft");
+    expect(checkbox?.getAttribute("aria-checked")).toBe("false");
+    await act(async () => {
+      checkbox?.click();
+    });
+    expect(checkbox?.getAttribute("aria-checked")).toBe("true");
+    expect(markdownOf(ctxHolder)).toContain("[x] Review draft");
+  });
+
+  it("cannot toggle a task in read-only mode", async () => {
+    const { ctxHolder } = await mount(false, undefined, "- [ ] Locked task\n");
+    const checkbox = container.querySelector<HTMLButtonElement>(
+      'button[role="checkbox"]',
+    );
+    expect(checkbox?.disabled).toBe(true);
+    await act(async () => {
+      checkbox?.click();
+    });
+    expect(markdownOf(ctxHolder)).toContain("[ ] Locked task");
+  });
+
+  it("updates checkbox chrome when editability changes without a document edit", async () => {
+    const value = "- [ ] Read draft\n";
+    const { ctxHolder } = await mount(true, undefined, value);
+    const checkbox = () =>
+      container.querySelector<HTMLButtonElement>('button[role="checkbox"]');
+    expect(checkbox()?.disabled).toBe(false);
+    await render(ctxHolder, false, undefined, value);
+    expect(checkbox()?.disabled).toBe(true);
+    await render(ctxHolder, true, undefined, value);
+    expect(checkbox()?.disabled).toBe(false);
+  });
+  it("formats the visible browser range when selectionchange has not reached ProseMirror", async () => {
+    const { view } = await mount(true, undefined, "A strong thought\n");
+    await act(async () => {
+      view.dispatch(
+        view.state.tr.setSelection(TextSelection.create(view.state.doc, 2, 17)),
+      );
+      const text = view.dom.querySelector("p")!.firstChild!;
+      // The user extended one character farther before tabbing into the toolbar.
+      document.getSelection()!.setBaseAndExtent(text, 16, text, 0);
+      syncToolbarSelection(view);
+    });
+    expect(view.state.selection.from).toBe(1);
+    expect(view.state.selection.to).toBe(17);
+    expect(view.state.selection.anchor).toBe(17);
   });
 });

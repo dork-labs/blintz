@@ -23,10 +23,9 @@ export function listItemFeature(
   const listItemView = $view(listItemSchema.node, () =>
     nodeViewFactory({
       component: ListItemView,
-      // Host element (Crepe's `<div class="milkdown-list-item-block">`); the
-      // component renders the inner `<li>` into it.
+      // A real list item keeps browser and accessibility list semantics intact.
       as: () => {
-        const el = document.createElement("div");
+        const el = document.createElement("li");
         el.className = "milkdown-list-item-block";
         return el;
       },

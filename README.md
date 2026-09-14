@@ -69,3 +69,21 @@ The apps read the library from TypeScript source, so edits hot-reload with no bu
 ## License
 
 [MIT](./LICENSE), © Dork Labs. A derivative of Milkdown's Crepe (MIT, © Mirone). See [ATTRIBUTION.md](./packages/blintz/ATTRIBUTION.md).
+
+## Visual and interaction tests
+
+Open `/playground` in the bakeoff for a quiet specimen page covering typography,
+lists, code, tables, math, and images. It includes live theme switching,
+read-only mode, a narrow page, and an editable Markdown source.
+
+```sh
+npx playwright install chromium
+npm run test:browser
+```
+
+The browser suite checks desktop and phone layouts in light and dark mode,
+including text contrast, list alignment, live themes, keyboard editing, and
+Markdown preservation. Reviewed screenshot baselines run in CI alongside unit
+tests, typechecks, and a production build. See the
+[bakeoff testing guide](apps/bakeoff/README.md#browser-regressions) for updating
+visual baselines deliberately.

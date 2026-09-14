@@ -27,6 +27,7 @@ import { GroupBuilder } from "../../shared/group-builder";
 import type { MenuItemGroup } from "../../shared/group-builder";
 
 export interface ToolbarItem {
+  label: string;
   icon: string;
   active: (ctx: Ctx) => boolean;
   onRun: (ctx: Ctx) => void;
@@ -45,6 +46,7 @@ export function buildToolbarGroups(): MenuItemGroup<ToolbarItem, false>[] {
   builder
     .addGroup("formatting", "Formatting")
     .addItem("bold", {
+      label: "Bold",
       icon: boldIcon,
       active: (ctx) =>
         Boolean(
@@ -57,6 +59,7 @@ export function buildToolbarGroups(): MenuItemGroup<ToolbarItem, false>[] {
       },
     })
     .addItem("italic", {
+      label: "Italic",
       icon: italicIcon,
       active: (ctx) =>
         Boolean(
@@ -69,6 +72,7 @@ export function buildToolbarGroups(): MenuItemGroup<ToolbarItem, false>[] {
       },
     })
     .addItem("strikethrough", {
+      label: "Strikethrough",
       icon: strikethroughIcon,
       active: (ctx) =>
         Boolean(
@@ -84,6 +88,7 @@ export function buildToolbarGroups(): MenuItemGroup<ToolbarItem, false>[] {
   builder
     .addGroup("function", "Function")
     .addItem("code", {
+      label: "Inline code",
       icon: codeIcon,
       active: (ctx) =>
         Boolean(
@@ -96,6 +101,7 @@ export function buildToolbarGroups(): MenuItemGroup<ToolbarItem, false>[] {
       },
     })
     .addItem("link", {
+      label: "Link",
       icon: linkIcon,
       active: (ctx) =>
         Boolean(

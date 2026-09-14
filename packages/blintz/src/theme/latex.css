@@ -55,10 +55,10 @@
         align-items: center;
         justify-content: center;
 
-        & > svg {
+        & svg {
           width: 18px;
           height: 18px;
-          color: var(--crepe-color-outline);
+          color: var(--crepe-color-on-surface-variant);
         }
 
         &:hover {

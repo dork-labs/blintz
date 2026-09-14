@@ -1,8 +1,4 @@
-import {
-  bulletIcon,
-  checkBoxCheckedIcon,
-  checkBoxUncheckedIcon,
-} from "../../icons";
+import { checkBoxCheckedIcon, checkBoxUncheckedIcon } from "../../icons";
 
 interface RenderLabelProps {
   label: string;
@@ -24,7 +20,8 @@ export function renderListItemLabel({
   checked,
 }: RenderLabelProps): string {
   if (checked == null) {
-    if (listType === "bullet") return bulletIcon;
+    if (listType === "bullet")
+      return '<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="8" cy="8" r="2.5" /></svg>';
     return label;
   }
   if (checked) return checkBoxCheckedIcon;

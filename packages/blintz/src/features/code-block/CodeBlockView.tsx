@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Icon } from "../../shared/Icon";
 import { cx } from "../../shared/cx";
-import { useEditorCtx } from "../../shared/editor-ctx";
+import { useEditorCtx, useEditorEditable } from "../../shared/editor-ctx";
 import { CopyButton } from "./CopyButton";
 import { LanguagePicker } from "./LanguagePicker";
 import { PreviewPanel } from "./PreviewPanel";
@@ -27,6 +27,7 @@ import { LanguageLoader } from "./loader";
 export function CodeBlockView() {
   const { node, view, getPos, setAttrs, selected } = useNodeViewContext();
   const ctx = useEditorCtx();
+  const editable = useEditorEditable(view);
   const config = ctx.get(codeBlockConfig.key);
 
   const hostRef = useRef<HTMLDivElement>(null);
@@ -133,7 +134,7 @@ export function CodeBlockView() {
           config={config}
           setLanguage={setLanguage}
           getAllLanguages={() => loader.getAll()}
-          getReadOnly={() => !view.editable}
+          getReadOnly={() => !editable}
         />
 
         <div className="tools-button-group">
@@ -158,7 +159,10 @@ export function CodeBlockView() {
 
       <div
         ref={hostRef}
-        className={cx("codemirror-host", preview && previewOnlyMode && "hidden")}
+        className={cx(
+          "codemirror-host",
+          preview && previewOnlyMode && "hidden",
+        )}
       />
 
       <PreviewPanel

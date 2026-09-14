@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Ctx } from "@milkdown/kit/ctx";
 import { Milkdown, MilkdownProvider } from "@milkdown/react";
 import {
@@ -13,7 +13,6 @@ import { cx } from "./shared/cx";
 import type { BlintzPlugin } from "./plugin";
 import { useBlintzEditor } from "./useBlintzEditor";
 
-import "@milkdown/theme-nord/style.css";
 import "./theme/index.css";
 
 export interface MarkdownEditorProps {
@@ -39,6 +38,8 @@ export interface MarkdownEditorProps {
   onChange?: (markdown: string) => void;
   /** Prompt shown in an empty block. Defaults to "Type / for commands". */
   placeholder?: string;
+  /** Explicit palette, or auto: nearest host theme followed by the OS preference. */
+  theme?: "light" | "dark" | "auto";
   /** Extra class on the host element. */
   className?: string;
   /**
@@ -65,12 +66,61 @@ export function MarkdownEditor({
   onChange,
   placeholder,
   className,
+  theme = "auto",
   plugins,
 }: MarkdownEditorProps) {
   const ctxHolder = useRef<Ctx | null>(null);
+  const hostRef = useRef<HTMLDivElement>(null);
+  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
+
+  useEffect(() => {
+    const media = window.matchMedia?.("(prefers-color-scheme: dark)");
+    const resolve = () => {
+      if (theme !== "auto") {
+        setResolvedTheme(theme);
+        return;
+      }
+      let ancestor = hostRef.current?.parentElement;
+      while (ancestor) {
+        const signal = ancestor.getAttribute("data-theme");
+        if (signal === "light" || signal === "dark") {
+          setResolvedTheme(signal);
+          return;
+        }
+        if (ancestor.classList.contains("dark")) {
+          setResolvedTheme("dark");
+          return;
+        }
+        if (ancestor.classList.contains("light")) {
+          setResolvedTheme("light");
+          return;
+        }
+        ancestor = ancestor.parentElement;
+      }
+      setResolvedTheme(media?.matches ? "dark" : "light");
+    };
+    resolve();
+    // Hosts commonly toggle a class on <html>; resolve the nearest signal so a
+    // local light/dark surface can override a differently themed outer shell.
+    const observer = new MutationObserver(resolve);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      subtree: true,
+      attributeFilter: ["class", "data-theme"],
+    });
+    media?.addEventListener("change", resolve);
+    return () => {
+      observer.disconnect();
+      media?.removeEventListener("change", resolve);
+    };
+  }, [theme]);
 
   return (
-    <div className={cx("milkdown-editor-host", className)}>
+    <div
+      ref={hostRef}
+      className={cx("milkdown-editor-host", className)}
+      data-blintz-theme={theme === "auto" ? resolvedTheme : theme}
+    >
       <EditorCtxProvider value={ctxHolder}>
         <MilkdownProvider>
           <ProsemirrorAdapterProvider>

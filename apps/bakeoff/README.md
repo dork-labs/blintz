@@ -52,3 +52,38 @@ src/
 ```
 
 Every panel implements the same `EditorPanelProps` (`markdown`, `onChange`, `theme`), so they swap against the shared state.
+
+## The writing room
+
+Open `/playground` for a focused Blintz specimen page. Switch between full
+prose, lists, typography, technical content, images, and a blank document. The
+controls exercise live light/dark changes, read-only mode, narrow layouts, an
+editable Markdown source, and external resets. Theme switches preserve the
+mounted editor and its undo history.
+
+The bakeoff remains at `/` for comparisons with BlockNote, MDXEditor, and the
+other editors. Its theme toggle also updates Blintz in place.
+
+## Browser regressions
+
+From the repo root:
+
+```sh
+npx playwright install chromium
+npm run test:browser
+```
+
+Playwright starts its own server on port 5191 (override `BLINTZ_TEST_PORT`), so
+it never uses a running development editor. Desktop and phone tests cover each
+specimen in both themes, with the operating-system theme deliberately set to
+the opposite value. Checks include rendered text contrast, page containment,
+list semantics and marker alignment, keyboard checkboxes, read-only changes,
+theme inheritance, typing, reset, and undo after a live theme change.
+
+Approved image baselines live in `browser-tests/editor.spec.ts-snapshots`.
+CI runs on macOS 14 to match the system fonts used to review the baselines.
+After an intentional visual change, run `npm run test:browser:update` on macOS,
+**open and inspect every changed image**, then run `npm run test:browser`
+without the update flag. Never update baselines just to clear a failure.
+Other platforms can run the behavioral tests or generate and review their own
+platform-specific baselines. Traces and screenshots are retained on failures.

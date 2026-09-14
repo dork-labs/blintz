@@ -19,6 +19,6 @@
   }
 
   .ProseMirror-focused {
-    --prosemirror-virtual-cursor-color: var(--crepe-color-outline);
+    --prosemirror-virtual-cursor-color: var(--crepe-color-on-surface-variant);
   }
 }

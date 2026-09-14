@@ -63,13 +63,40 @@ describe("Blintz round-trip fidelity", () => {
       expect(await roundTrip(md)).toBe(md);
     });
 
-    it("preserves inline HTML elements (but drops void <br>)", async () => {
+    it("preserves inline HTML elements and intentional hard breaks", async () => {
       const out = await roundTrip(
         "Text with <strong>bold</strong> and a <br> tag.\n",
       );
       expect(out).toContain("<strong>bold</strong>");
-      // stripEmptyLineBreaks intentionally removes <br> artifacts.
-      expect(out).not.toContain("<br>");
+      expect(out).toMatch(/and a.*\n&#x20;tag\./s);
+      expect(out).not.toContain("and a  tag.");
+    });
+
+    it.each(["<br>", "<br/>", "<br />"])(
+      "keeps inline %s as a hard break",
+      async (br) => {
+        const out = await roundTrip(`First${br}Second\n`);
+        expect(out).toContain("First\\\nSecond");
+      },
+    );
+
+    it.each([
+      "# First<br>Second\n",
+      "**First<br>Second**\n",
+      "> First<br>Second\n",
+      "[First<br>Second](https://example.com)\n",
+    ])("preserves breaks in inline containers: %s", async (md) => {
+      const out = await roundTrip(md);
+      expect(out).not.toContain("FirstSecond");
+      expect(out).toContain("First");
+      expect(out).toContain("Second");
+      expect(out).toMatch(/First.*\n.*Second/s);
+    });
+
+    it("removes standalone legacy empty paragraphs", async () => {
+      expect(await roundTrip("Before.\n\n<br />\n\nAfter.\n")).toBe(
+        "Before.\n\nAfter.\n",
+      );
     });
 
     it("preserves YAML frontmatter (now a first-class editable block)", async () => {
@@ -105,7 +132,7 @@ describe("Blintz round-trip fidelity", () => {
 
     it("keeps nested-list structure through bullet normalization", async () => {
       const out = await roundTrip("- a\n  - b\n    - c\n");
-      // `-` becomes `*` and tight lists become loose, but nesting depth holds.
+      // Bullet markers normalize; nesting depth and list tightness survive.
       expect(out).toContain("* a");
       expect(out).toContain("  * b");
       expect(out).toContain("    * c");

@@ -60,19 +60,25 @@ export function LatexInlineEdit() {
   const onConfirmPointerDown = (e: ReactPointerEvent) => {
     // Keep the input focused (don't let the press blur it before confirm runs).
     e.preventDefault();
-    confirm();
   };
 
   return (
     <div className="container">
       <input
         className="latex-input"
+        aria-label="Math expression"
         placeholder="Enter LaTeX..."
         value={text}
         onKeyDown={onKeydown}
         onChange={(e) => setText(e.target.value)}
       />
-      <button type="button" className="button" onPointerDown={onConfirmPointerDown}>
+      <button
+        type="button"
+        className="button"
+        aria-label="Apply math expression"
+        onPointerDown={onConfirmPointerDown}
+        onClick={confirm}
+      >
         <Icon icon={confirmIcon} />
       </button>
     </div>

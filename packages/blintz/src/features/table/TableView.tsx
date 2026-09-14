@@ -1,8 +1,9 @@
 import { useNodeViewContext } from "@prosemirror-adapter/react";
 import { useEffect, useRef } from "react";
 
+import { TableActions } from "./TableActions";
 import { Icon } from "../../shared/Icon";
-import { useEditorCtx } from "../../shared/editor-ctx";
+import { useEditorCtx, useEditorEditable } from "../../shared/editor-ctx";
 import { tableBlockConfig } from "./config";
 import { createDragHandlers } from "./drag";
 import { createOperations } from "./operation";
@@ -32,6 +33,7 @@ import { recoveryStateBetweenUpdate } from "./utils";
 export function TableView() {
   const { node, view, getPos, contentRef } = useNodeViewContext();
   const ctx = useEditorCtx();
+  const editable = useEditorEditable(view);
   const config = ctx.get(tableBlockConfig.key);
 
   // Imperative ref bag — the pointer/operation/drag/utils helpers mutate these
@@ -143,10 +145,12 @@ export function TableView() {
   return (
     <div
       ref={wrapperRef}
+      className={editable ? undefined : "readonly"}
       onDragStart={preventDrag}
       onDragOver={preventDrag}
       onDragLeave={preventDrag}
     >
+      <TableActions />
       <div
         data-show="false"
         contentEditable={false}
@@ -160,16 +164,36 @@ export function TableView() {
       >
         <Icon icon={config.renderButton("col_drag_handle")} />
         <div className="button-group" data-show="false" onPointerMove={stop}>
-          <button type="button" onPointerDown={onAlign("left")}>
+          <button
+            type="button"
+            aria-label="Align column left"
+            onPointerDown={preventDrag}
+            onClick={onAlign("left")}
+          >
             <Icon icon={config.renderButton("align_col_left")} />
           </button>
-          <button type="button" onPointerDown={onAlign("center")}>
+          <button
+            type="button"
+            aria-label="Align column center"
+            onPointerDown={preventDrag}
+            onClick={onAlign("center")}
+          >
             <Icon icon={config.renderButton("align_col_center")} />
           </button>
-          <button type="button" onPointerDown={onAlign("right")}>
+          <button
+            type="button"
+            aria-label="Align column right"
+            onPointerDown={preventDrag}
+            onClick={onAlign("right")}
+          >
             <Icon icon={config.renderButton("align_col_right")} />
           </button>
-          <button type="button" onPointerDown={deleteSelected}>
+          <button
+            type="button"
+            aria-label="Delete selected column"
+            onPointerDown={preventDrag}
+            onClick={deleteSelected}
+          >
             <Icon icon={config.renderButton("delete_col")} />
           </button>
         </div>
@@ -188,7 +212,12 @@ export function TableView() {
       >
         <Icon icon={config.renderButton("row_drag_handle")} />
         <div className="button-group" data-show="false" onPointerMove={stop}>
-          <button type="button" onPointerDown={deleteSelected}>
+          <button
+            type="button"
+            aria-label="Delete selected row"
+            onPointerDown={preventDrag}
+            onClick={deleteSelected}
+          >
             <Icon icon={config.renderButton("delete_row")} />
           </button>
         </div>
@@ -216,7 +245,12 @@ export function TableView() {
           onPointerMove={stop}
           ref={xLineHandleRef}
         >
-          <button type="button" onClick={onAddRow} className="add-button">
+          <button
+            type="button"
+            aria-label="Add row"
+            onClick={onAddRow}
+            className="add-button"
+          >
             <Icon icon={config.renderButton("add_row")} />
           </button>
         </div>
@@ -229,7 +263,12 @@ export function TableView() {
           onPointerMove={stop}
           ref={yLineHandleRef}
         >
-          <button type="button" onClick={onAddCol} className="add-button">
+          <button
+            type="button"
+            aria-label="Add column"
+            onClick={onAddCol}
+            className="add-button"
+          >
             <Icon icon={config.renderButton("add_col")} />
           </button>
         </div>

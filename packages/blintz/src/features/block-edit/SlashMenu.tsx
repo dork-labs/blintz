@@ -82,11 +82,18 @@ export function SlashMenu() {
 
   const runByIndex = useCallback(
     (index: number) => {
-      const item = groupsRef.current.flatMap((group) => group.items).at(index);
+      // Read the store at activation time as well: React may not have painted
+      // the latest filtered menu between a fast final keystroke and Enter.
+      const currentFilter = store.getSnapshot().filter;
+      const currentGroups = getGroups(currentFilter).groups;
+      const activeIndex = currentFilter === filter ? index : 0;
+      const item = currentGroups
+        .flatMap((group) => group.items)
+        .at(activeIndex);
       if (item?.onRun) item.onRun(ctx);
       hide();
     },
-    [ctx, hide],
+    [ctx, hide, store, filter],
   );
 
   const onKeydown = useCallback(
@@ -117,7 +124,10 @@ export function SlashMenu() {
         return;
       }
       if (e.key === "ArrowDown") {
-        onHover((index) => (index < size - 1 ? index + 1 : index), scrollToIndex);
+        onHover(
+          (index) => (index < size - 1 ? index + 1 : index),
+          scrollToIndex,
+        );
         return;
       }
       if (e.key === "ArrowUp") {
@@ -199,7 +209,12 @@ export function SlashMenu() {
           ))}
         </ul>
       </nav>
-      <div className="menu-groups" onPointerMove={onPointerMove}>
+      <div
+        className="menu-groups"
+        role="listbox"
+        aria-label="Insert block"
+        onPointerMove={onPointerMove}
+      >
         {groups.map((group) => (
           <div key={group.key} className="menu-group">
             <h6>{group.label}</h6>
@@ -208,6 +223,9 @@ export function SlashMenu() {
                 <li
                   key={item.key}
                   data-index={item.index}
+                  role="option"
+                  aria-selected={hoverIndex === item.index}
+                  aria-label={item.label}
                   className={hoverIndex === item.index ? "hover" : ""}
                   onPointerEnter={getOnPointerEnter(item.index)}
                   onPointerDown={() => {

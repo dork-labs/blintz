@@ -1,7 +1,4 @@
-import type {
-  KeyboardEvent as ReactKeyboardEvent,
-  PointerEvent as ReactPointerEvent,
-} from "react";
+import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useEffect, useState, useSyncExternalStore } from "react";
 
 import { Icon } from "../../shared/Icon";
@@ -59,27 +56,26 @@ export function LinkEdit() {
     }
   };
 
-  const onConfirmPointerDown = (e: ReactPointerEvent) => {
-    // Keep the input focused (don't let the press blur it before confirm runs).
-    e.preventDefault();
-    confirm();
-  };
-
   return (
     <div className="link-edit">
       <input
         className="input-area"
+        aria-label="Link address"
         placeholder={config.inputPlaceholder}
         value={value}
         onKeyDown={onKeydown}
         onChange={(e) => setValue(e.target.value)}
       />
       {value ? (
-        <Icon
+        <button
+          type="button"
           className="button confirm"
-          icon={config.confirmButton}
-          onPointerDown={onConfirmPointerDown}
-        />
+          aria-label="Apply link"
+          onPointerDown={(e) => e.preventDefault()}
+          onClick={confirm}
+        >
+          <Icon icon={config.confirmButton} />
+        </button>
       ) : null}
     </div>
   );

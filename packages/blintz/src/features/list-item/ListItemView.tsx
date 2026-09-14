@@ -1,3 +1,4 @@
+import { useEditorEditable } from "../../shared/editor-ctx";
 import { useNodeViewContext } from "@prosemirror-adapter/react";
 
 import { Icon } from "../../shared/Icon";
@@ -9,9 +10,8 @@ import { renderListItemLabel } from "./render-label";
  * `useNodeViewFactory` + `contentRef` + the checkbox toggle. Replaces Crepe's
  * Vue `ListItem` (`components/list-item-block/component.tsx`).
  *
- * The host `<div class="milkdown-list-item-block">` is created by the factory's
- * `as` option; this renders the inner `<li>` with the label and the editable
- * children. `contentRef` hosts the item's paragraph/children (PM's contentDOM).
+ * The factory creates the semantic `<li>`; this renders its custom marker
+ * and editable children. `contentRef` hosts the item's paragraph/children (PM's contentDOM).
  */
 export function ListItemView() {
   const { node, view, getPos, selected, contentRef } = useNodeViewContext();
@@ -20,13 +20,12 @@ export function ListItemView() {
     checked: boolean | null;
     listType: string;
   };
-  const readonly = !view.editable;
+  const readonly = !useEditorEditable(view);
 
   const toggleChecked = () => {
     if (!view.editable) return;
     const pos = getPos();
     if (pos == null) return;
-    if (!view.hasFocus()) view.focus();
     view.dispatch(view.state.tr.setNodeAttribute(pos, "checked", !checked));
   };
 
@@ -40,23 +39,48 @@ export function ListItemView() {
         : "unchecked";
 
   return (
-    <li className={cx("list-item", selected && "ProseMirror-selectednode")}>
-      <div
-        className="label-wrapper"
-        contentEditable={false}
-        onPointerDown={(e) => {
-          // Toggle only on checkboxes; keep the editor selection intact.
-          e.preventDefault();
-          e.stopPropagation();
-          if (checked != null) toggleChecked();
-        }}
-      >
-        <Icon
-          className={cx("label", readonly && "readonly", labelClass)}
-          icon={renderListItemLabel({ label, listType, checked, readonly })}
-        />
-      </div>
+    <div
+      className={cx(
+        "milkdown-list-item-content",
+        selected && "ProseMirror-selectednode",
+      )}
+    >
+      {checked == null ? (
+        <span
+          className="label-wrapper"
+          contentEditable={false}
+          aria-hidden="true"
+        >
+          <Icon
+            className={cx("label", labelClass)}
+            icon={renderListItemLabel({ label, listType, checked })}
+          />
+        </span>
+      ) : (
+        <button
+          type="button"
+          role="checkbox"
+          aria-checked={checked}
+          aria-label={node.textContent || "Task"}
+          disabled={readonly}
+          className="label-wrapper task-checkbox"
+          contentEditable={false}
+          onPointerDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleChecked();
+          }}
+        >
+          <Icon
+            className={cx("label", labelClass)}
+            icon={renderListItemLabel({ label, listType, checked })}
+          />
+        </button>
+      )}
       <div className="children" ref={contentRef} />
-    </li>
+    </div>
   );
 }

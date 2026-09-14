@@ -11,7 +11,7 @@ npm install blintz
 
 ```tsx
 import { MarkdownEditor } from "blintz";
-import "blintz/styles.css"; // the component imports this too, so this line is optional
+import "blintz/styles.css"; // required when consuming the built package
 
 function Example() {
   const [md, setMd] = useState("# Hello\n\nType `/` for commands.");
@@ -19,7 +19,7 @@ function Example() {
 }
 ```
 
-The whole public surface is one controlled `<MarkdownEditor value onChange />` component, plus `editable`, `placeholder`, and `className`. The Milkdown engine, the Crepe-derived feature views, and the theme CSS sit behind it.
+The whole public surface is one controlled `<MarkdownEditor value onChange />` component, plus `editable`, `placeholder`, `theme`, and `className`. The Milkdown engine, the Crepe-derived feature views, and the theme CSS sit behind it.
 
 ## Read-only mode
 
@@ -45,7 +45,7 @@ It works at the seam Milkdown itself draws. The engine is framework-agnostic: Pr
 
 ## Design goals
 
-1. **Round-trip fidelity comes first.** Load markdown, edit, save markdown, and the result stays faithful and clean. Blintz turns off Milkdown's empty-line `<br />` behavior so stored prose stays free of HTML noise: blank lines collapse the markdown-native way, and any legacy `<br />` is stripped on load.
+1. **Round-trip fidelity comes first.** Load markdown, edit, save markdown, and the result stays faithful and clean. Blintz turns off Milkdown's empty-line `<br />` behavior so stored prose stays free of HTML noise: blank lines collapse the markdown-native way, and standalone legacy `<br />` artifacts are stripped on load. Inline HTML breaks become markdown hard breaks.
 2. No Vue. Blintz never imports `@milkdown/crepe`, the Vue-bundled `@milkdown/kit/component/*`, or `createApp`. The build is checked for Vue runtime markers; the only allowed `vue` string is CodeMirror's `.vue` syntax pack.
 3. A small, host-agnostic API: one controlled component, no router or store assumptions, themed with CSS variables.
 4. Works on React 18 and 19. `react` and `react-dom` are peer deps.
@@ -57,7 +57,7 @@ It works at the seam Milkdown itself draws. The engine is framework-agnostic: Pr
 - Code blocks: a real CodeMirror editor per block, with a language picker and a preview.
 - Math: inline `$…$` and block math via KaTeX, round-tripping to `$$…$$`.
 - Images: uploader or URL input, with captions.
-- Tables: GFM tables with column and row drag handles, and drag-to-reorder.
+- Tables: GFM tables with column and row drag handles, plus a keyboard and touch menu to add, move or delete rows and columns.
 - Links: hover preview and an inline edit tooltip.
 - A selection toolbar (bold, italic, strikethrough, code, link), a block placeholder, a virtual cursor, and dark mode.
 
@@ -65,23 +65,36 @@ Icons come from [Lucide](https://lucide.dev), rendered through a sanitized `<Ico
 
 ## Theming
 
-Visual styling runs on `--crepe-*` CSS custom properties (the token names are inherited from Crepe), scoped to `.milkdown`. Override them on any ancestor to re-theme.
+Blintz ships its own scoped typography, so importing its stylesheet does not reset the host app. Body text is 16px with a 1.65 line height, lists have one marker, and code, tables and editing controls share one palette.
 
-Light is the default. The editor paints its own background and text from the tokens, so it never inherits the host page's colors. There are three ways to change the palette, and the later signal wins:
+Use `theme="light"` or `theme="dark"` to set the palette. The default, `theme="auto"`, follows the nearest `.light`, `.dark`, or `data-theme="light|dark"` ancestor, then the OS preference. A theme change updates the mounted editor without resetting content, selection or history.
 
-- **Dark, from the OS.** `prefers-color-scheme: dark` turns the editor dark on its own, with no markup.
-- **Dark, forced.** A `.dark` or `[data-theme="dark"]` ancestor forces dark even when the OS is light.
-- **Light, forced.** A `.light` or `[data-theme="light"]` ancestor forces light and wins over a dark OS, so a light app stays light on a dark machine.
-
-```html
-<div data-theme="dark">
-  <!-- <MarkdownEditor /> renders dark here -->
-</div>
-
-<div data-theme="light">
-  <!-- and light here, even if the OS is in dark mode -->
-</div>
+```tsx
+<MarkdownEditor value={md} onChange={setMd} theme={appTheme} />
 ```
+
+Set public `--blintz-*` variables on the editor's `className` or any ancestor to match your app. Variables contain complete CSS colors, not raw HSL channels. Both theme palettes respect these overrides.
+
+```css
+.document-editor {
+  --blintz-color-background: var(--app-background);
+  --blintz-color-on-background: var(--app-text);
+  --blintz-color-surface: var(--app-surface);
+  --blintz-color-on-surface: var(--app-text);
+  --blintz-color-primary: var(--app-link);
+  --blintz-font-default: var(--app-font);
+  --blintz-font-title: var(--app-font);
+  --blintz-font-code: var(--app-monospace);
+}
+```
+
+Color inputs: `--blintz-color-` followed by `background`, `on-background`, `surface`, `surface-low`, `on-surface`, `on-surface-variant`, `outline`, `primary`, `secondary`, `on-secondary`, `inverse`, `on-inverse`, `inline-code`, `error`, `hover`, `selected`, or `inline-area`. Supply contrasting foreground/background pairs together.
+
+Syntax inputs: `--blintz-code-keyword`, `--blintz-code-string`, `--blintz-code-number`, `--blintz-code-comment`, `--blintz-code-function`, `--blintz-code-type`, and `--blintz-code-operator`. CodeMirror reads these live, including when switching themes.
+
+Layout inputs: `--blintz-font-size`, `--blintz-padding`, `--blintz-readonly-padding`, and `--crepe-block-handle-gutter`. The default gutter shrinks on narrow screens. Read-only documents do not reserve room for editing handles. `--blintz-shadow-1` and `--blintz-shadow-2` customize floating controls.
+
+Existing `--crepe-*` feature variables remain available as outputs. Legacy overrides must target `.milkdown` directly with sufficient specificity; ancestor overrides should use the new `--blintz-*` inputs. Remove external `.prose` classes and Nord-specific CSS from the editor surface, since Blintz now owns the complete prose styling.
 
 ## Architecture
 
@@ -100,6 +113,12 @@ npm install
 npm run typecheck   # the package and its React 18/19 consumers
 npm test            # vitest, including the empty-paragraph round-trip guard
 ```
+
+## Dependency troubleshooting
+
+ProseMirror plugins must share the same installed `prosemirror-model`, `prosemirror-state`, and `prosemirror-view` versions. An older pnpm lockfile can retain separate copies after updating Blintz. The editor may render correctly until a node selection throws an error such as `DecorationGroup` or `localsInner`, because objects from the two copies fail identity checks.
+
+Run `pnpm why prosemirror-model`, `pnpm why prosemirror-state`, and `pnpm why prosemirror-view` to inspect the dependency paths. Update and deduplicate compatible versions together. If the host still retains separate copies, use its `pnpm.overrides` to select one compatible version of each package for the whole app, then reinstall. Avoid forcing versions outside the dependent packages' supported ranges. Restart the dev server and clear its dependency prebundle cache after changing the graph.
 
 ## License and attribution
 
