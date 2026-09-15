@@ -1,0 +1,24 @@
+{
+  "id": "01M2JES4WNP6QNAV9CKGE98G95",
+  "name": "Blintz",
+  "description": "Blintz, the markdown editor used by DorkOS.",
+  "runtime": "claude-code",
+  "capabilities": [
+    "code"
+  ],
+  "behavior": {
+    "responseMode": "always"
+  },
+  "namespace": "keep",
+  "registeredAt": "2026-09-15T11:56:02.837Z",
+  "registeredBy": "mcp-tool",
+  "personaEnabled": true,
+  "isSystem": false,
+  "color": "#06b6d4",
+  "icon": "🤖",
+  "enabledToolGroups": {},
+  "mcpServers": [],
+  "workspace": {
+    "mode": "home"
+  }
+}

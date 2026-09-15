@@ -1,0 +1,47 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Edit(./.env)",
+      "Write(./.env)",
+      "Read(./.env.*)",
+      "Edit(./.env.*)",
+      "Write(./.env.*)",
+      "Read(./**/*.key)",
+      "Edit(./**/*.key)",
+      "Write(./**/*.key)",
+      "Read(./**/*.pem)",
+      "Edit(./**/*.pem)",
+      "Write(./**/*.pem)",
+      "Read(./Secrets/**)",
+      "Edit(./Secrets/**)",
+      "Write(./Secrets/**)",
+      "Read(./Credentials/**)",
+      "Edit(./Credentials/**)",
+      "Write(./Credentials/**)",
+      "Edit(./.git/**)",
+      "Write(./.git/**)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel)}\" && node .claude/hooks/file-guard.mjs"
+          },
+          {
+            "type": "command",
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel)}\" && node .claude/hooks/git-guard.mjs"
+          },
+          {
+            "type": "command",
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel)}\" && node .claude/hooks/process-guard.mjs"
+          }
+        ]
+      }
+    ]
+  }
+}

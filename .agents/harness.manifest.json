@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "harnesses": [
+    "claude-code",
+    "codex"
+  ],
+  "claudeOnlySkills": [
+    {
+      "name": "test-driven-development",
+      "path": ".claude/skills/test-driven-development",
+      "reason": "Copied from DorkOS as Claude-only; not yet reviewed for Codex."
+    },
+    {
+      "name": "requesting-code-review",
+      "path": ".claude/skills/requesting-code-review",
+      "reason": "Dispatches the code-reviewer subagent through Claude Code's Agent tool."
+    },
+    {
+      "name": "receiving-code-review",
+      "path": ".claude/skills/receiving-code-review",
+      "reason": "Copied from DorkOS as Claude-only; portability pass still pending."
+    },
+    {
+      "name": "working-in-worktrees",
+      "path": ".claude/skills/working-in-worktrees",
+      "reason": "Drives the EnterWorktree/ExitWorktree tools and the /worktree:* commands."
+    }
+  ],
+  "hookPolicies": []
+}
