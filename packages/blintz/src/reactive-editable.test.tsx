@@ -258,7 +258,7 @@ describe("reactive editable", () => {
     const checkbox = container.querySelector<HTMLButtonElement>(
       'button[role="checkbox"]',
     );
-    expect(checkbox?.disabled).toBe(true);
+    expect(checkbox).toBeNull();
     await act(async () => {
       checkbox?.click();
     });
@@ -272,7 +272,7 @@ describe("reactive editable", () => {
       container.querySelector<HTMLButtonElement>('button[role="checkbox"]');
     expect(checkbox()?.disabled).toBe(false);
     await render(ctxHolder, false, undefined, value);
-    expect(checkbox()?.disabled).toBe(true);
+    expect(checkbox()).toBeNull();
     await render(ctxHolder, true, undefined, value);
     expect(checkbox()?.disabled).toBe(false);
   });

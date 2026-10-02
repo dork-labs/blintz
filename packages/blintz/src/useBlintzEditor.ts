@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import {
   Editor,
   defaultValueCtx,
@@ -23,6 +23,8 @@ import type {
 
 import type { CtxHolder } from "./shared/editor-ctx";
 import type { BlintzPlugin } from "./plugin";
+import { SourceController, type SourceCallbacks } from "./source-controller";
+import { sourcePlugin } from "./source-plugin";
 import { DEFAULT_EDITABLE, editablePredicate } from "./read-only";
 import { blockEditFeature } from "./features/block-edit/plugins";
 import { codeMirrorFeature } from "./features/code-block";
@@ -40,7 +42,9 @@ import { placeholderFeature } from "./features/placeholder";
 import { tableFeature } from "./features/table";
 import { toolbarFeature } from "./features/toolbar/plugin";
 
-interface UseCrepeEditorArgs {
+interface UseCrepeEditorArgs extends SourceCallbacks {
+  /** Explicit host source revision also permits equal-text rebinding. */
+  sourceRevision?: string;
   /** Current markdown — seeds the editor and, on external change, resets it. */
   value: string;
   /** Read-only when `false` (default `true`). Synced live by the reactivity
@@ -77,9 +81,28 @@ export function useBlintzEditor({
   pluginViewFactory,
   ctxHolder,
   plugins,
+  sourceRevision,
+  onSourceReady,
+  onSourceSelection,
+  onTaskToggleRequest,
 }: UseCrepeEditorArgs): void {
+  const sourceRef = useRef<SourceController | null>(null);
+  const callbacksRef = useRef<SourceCallbacks>({});
+  // Render attempts may suspend: only a committed lifecycle may publish handlers
+  // to the imperative editor that still belongs to the committed React tree.
+  useLayoutEffect(() => {
+    callbacksRef.current = {
+      onSourceReady,
+      onSourceSelection,
+      onTaskToggleRequest,
+    };
+    sourceRef.current?.setCallbacks(callbacksRef.current);
+  }, [onSourceReady, onSourceSelection, onTaskToggleRequest]);
+  const revisionRef = useRef(sourceRevision);
   const onChangeRef = useRef(onChange);
-  onChangeRef.current = onChange;
+  useLayoutEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
 
   // Captured once: useEditor runs the factory a single time, so the registered
   // plugin set is fixed at mount (same as the built-in features). Changing the
@@ -90,9 +113,12 @@ export function useBlintzEditor({
   // the editor last emitted — lets us distinguish an external reset from our
   // own emissions (no feedback loop).
   const editorValueRef = useRef(value);
-  // Captured once: useEditor runs the factory a single time, so don't let the
-  // seed chase the changing `value` prop.
-  const seedRef = useRef(value);
+  // A real editor recreation must use the latest committed host snapshot,
+  // never a render attempt or a destroyed editor's value-equality bookkeeping.
+  const seedRef = useRef({ value, sourceRevision });
+  useLayoutEffect(() => {
+    seedRef.current = { value, sourceRevision };
+  }, [value, sourceRevision]);
   const placeholderRef = useRef(placeholder);
   // The read-only master switch, kept in a ref because ProseMirror's `editable`
   // option is wired as a getter that reads it live on every state update. The
@@ -102,10 +128,18 @@ export function useBlintzEditor({
   const editableRef = useRef(editable);
 
   useEditor((root) => {
+    // Activity hide/show can destroy and recreate the editor while retaining
+    // React hook refs. Each real editor lifetime needs a fresh authority port.
+    const seed = seedRef.current;
+    editorValueRef.current = seed.value;
+    revisionRef.current = seed.sourceRevision;
+    const source = new SourceController();
+    source.callbacks = callbacksRef.current;
+    sourceRef.current = source;
     const editor = Editor.make()
       .config((ctx) => {
         ctx.set(rootCtx, root);
-        ctx.set(defaultValueCtx, seedRef.current);
+        ctx.set(defaultValueCtx, seed.value);
         ctxHolder.current = ctx;
         // Read-only master switch. ProseMirror calls this getter on each state
         // update, so `view.editable` tracks it — and the toolbar, placeholder,
@@ -132,7 +166,8 @@ export function useBlintzEditor({
       .use(trailing)
       .use(clipboard)
       .use(upload)
-      .use(listener);
+      .use(listener)
+      .use(sourcePlugin(source));
 
     // Features (share the engine above; each registers its own views/plugins).
     // frontmatter first: pure grammar (remark + schema), nothing depends on it.
@@ -173,10 +208,31 @@ export function useBlintzEditor({
 
   const [loading, getInstance] = useInstance();
 
+  useEffect(() => {
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) sourceRef.current?.refreshControls();
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [onTaskToggleRequest, loading]);
+
   // External value changes (e.g. "reset to seed") → push into the editor.
   useEffect(() => {
     if (loading) return;
-    if (value === editorValueRef.current) return;
+    if (
+      value === editorValueRef.current &&
+      sourceRevision === revisionRef.current
+    )
+      return;
+    revisionRef.current = sourceRevision;
+    if (value === editorValueRef.current) {
+      const source = sourceRef.current!;
+      source.invalidate();
+      source.port.bindSource(value, source.currentGeneration);
+      return;
+    }
     const editor = getInstance();
     if (!editor) return;
     editorValueRef.current = value;
@@ -192,11 +248,13 @@ export function useBlintzEditor({
       // Skip if unmounted/superseded or a newer value already landed.
       if (cancelled || editorValueRef.current !== value) return;
       editor.action(replaceAll(value));
+      const source = sourceRef.current!;
+      source.port.bindSource(value, source.currentGeneration);
     });
     return () => {
       cancelled = true;
     };
-  }, [value, loading, getInstance]);
+  }, [value, sourceRevision, loading, getInstance]);
 
   // Reactive editability: sync the ref the `editable` getter reads, then force
   // ProseMirror to re-run that getter so `view.editable` — and the root's

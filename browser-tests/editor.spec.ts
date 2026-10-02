@@ -143,7 +143,7 @@ test("lists have one marker, semantic children, and aligned first lines", async 
   ).toBeVisible();
 });
 
-test("checkboxes work by keyboard and become inert in reading view", async ({
+test("checkboxes work by keyboard and disappear in reading view", async ({
   page,
 }) => {
   await openDocument(page, "lists");
@@ -161,7 +161,7 @@ test("checkboxes work by keyboard and become inert in reading view", async ({
     "contenteditable",
     "false",
   );
-  await expect(checkbox).toBeDisabled();
+  await expect(page.getByRole("checkbox")).toHaveCount(0);
 });
 
 test("live theme changes preserve the editor, edits, and undo history", async ({

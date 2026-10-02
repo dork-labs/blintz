@@ -1,6 +1,8 @@
-import { useEditorEditable } from "../../shared/editor-ctx";
+import { useSyncExternalStore } from "react";
+import { useEditorEditable, useEditorCtx } from "../../shared/editor-ctx";
 import { useNodeViewContext } from "@prosemirror-adapter/react";
 
+import { sourceControllerCtx } from "../../source-plugin";
 import { Icon } from "../../shared/Icon";
 import { cx } from "../../shared/cx";
 import { renderListItemLabel } from "./render-label";
@@ -21,11 +23,25 @@ export function ListItemView() {
     listType: string;
   };
   const readonly = !useEditorEditable(view);
+  const controller = useEditorCtx().get(sourceControllerCtx);
+  useSyncExternalStore(
+    (notify) => {
+      view.dom.addEventListener("blintz:source", notify);
+      return () => view.dom.removeEventListener("blintz:source", notify);
+    },
+    () => controller?.controlSnapshot ?? "",
+    () => "",
+  );
+  const position = getPos();
+  const unmappedHostTask =
+    !!controller?.callbacks.onTaskToggleRequest &&
+    (position == null || controller.port.taskAt(position).kind !== "mapped");
 
   const toggleChecked = () => {
     if (!view.editable) return;
     const pos = getPos();
     if (pos == null) return;
+    if (controller?.toggle(pos, !checked)) return;
     view.dispatch(view.state.tr.setNodeAttribute(pos, "checked", !checked));
   };
 
@@ -50,6 +66,17 @@ export function ListItemView() {
           className="label-wrapper"
           contentEditable={false}
           aria-hidden="true"
+        >
+          <Icon
+            className={cx("label", labelClass)}
+            icon={renderListItemLabel({ label, listType, checked })}
+          />
+        </span>
+      ) : readonly || unmappedHostTask ? (
+        <span
+          className="label-wrapper"
+          contentEditable={false}
+          aria-label={checked ? "Completed task" : "Incomplete task"}
         >
           <Icon
             className={cx("label", labelClass)}
