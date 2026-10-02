@@ -10,12 +10,15 @@ import {
 import { EditorCtxProvider } from "./shared/editor-ctx";
 import type { CtxHolder } from "./shared/editor-ctx";
 import { cx } from "./shared/cx";
+import type { SourceCallbacks } from "./source-controller";
 import type { BlintzPlugin } from "./plugin";
 import { useBlintzEditor } from "./useBlintzEditor";
 
 import "./theme/index.css";
 
-export interface MarkdownEditorProps {
+export interface MarkdownEditorProps extends SourceCallbacks {
+  /** Host raw-source revision. Equal text with a new revision invalidates old locations. */
+  sourceRevision?: string;
   /**
    * Current markdown. Seeds the editor on mount; when it diverges from the last
    * value the editor emitted (e.g. an external "reset"), the editor resets to it.
@@ -68,6 +71,10 @@ export function MarkdownEditor({
   className,
   theme = "auto",
   plugins,
+  sourceRevision,
+  onSourceReady,
+  onSourceSelection,
+  onTaskToggleRequest,
 }: MarkdownEditorProps) {
   const ctxHolder = useRef<Ctx | null>(null);
   const hostRef = useRef<HTMLDivElement>(null);
@@ -131,6 +138,10 @@ export function MarkdownEditor({
               placeholder={placeholder}
               ctxHolder={ctxHolder}
               plugins={plugins}
+              sourceRevision={sourceRevision}
+              onSourceReady={onSourceReady}
+              onSourceSelection={onSourceSelection}
+              onTaskToggleRequest={onTaskToggleRequest}
             />
           </ProsemirrorAdapterProvider>
         </MilkdownProvider>
@@ -139,7 +150,8 @@ export function MarkdownEditor({
   );
 }
 
-interface EditorInnerProps {
+interface EditorInnerProps extends SourceCallbacks {
+  sourceRevision?: string;
   value: string;
   editable?: boolean;
   onChange?: (markdown: string) => void;
@@ -155,6 +167,10 @@ function EditorInner({
   placeholder,
   ctxHolder,
   plugins,
+  sourceRevision,
+  onSourceReady,
+  onSourceSelection,
+  onTaskToggleRequest,
 }: EditorInnerProps) {
   // Factory hooks must run in render, under both providers; useBlintzEditor
   // closes over them inside the `useEditor` factory (the factory bridge).
@@ -170,6 +186,10 @@ function EditorInner({
     pluginViewFactory,
     ctxHolder,
     plugins,
+    sourceRevision,
+    onSourceReady,
+    onSourceSelection,
+    onTaskToggleRequest,
   });
 
   return <Milkdown />;

@@ -18,3 +18,13 @@ export type { BlintzPlugin, BlintzPluginContext } from "./plugin";
 // from inside a node/plugin view rendered under <MarkdownEditor>.
 export { useEditorCtx } from "./shared/editor-ctx";
 export type { CtxHolder } from "./shared/editor-ctx";
+
+export type {
+  MarkdownSourcePort,
+  SourceSnapshot,
+  RawSourceRange,
+  SourceLocationResult,
+  SourceSelection,
+  SourceTask,
+  SourceTaskToggleRequest,
+} from "./source-location";

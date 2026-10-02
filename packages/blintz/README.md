@@ -123,3 +123,32 @@ Run `pnpm why prosemirror-model`, `pnpm why prosemirror-state`, and `pnpm why pr
 ## License and attribution
 
 [MIT](./LICENSE), © Dork Labs. Blintz is a derivative of Milkdown's Crepe (MIT, © Mirone) and bundles other open-source work: ProseMirror, remark, KaTeX, CodeMirror, Lucide, Floating UI, and DOMPurify. See [ATTRIBUTION.md](./ATTRIBUTION.md) for the full credits and the upstream-sync notes.
+
+## Original-source locations
+
+Hosts can ask where a selection or task came from in the original markdown. Add `onSourceReady` to receive a stable `MarkdownSourcePort`. Add `onSourceSelection` to receive selection changes.
+
+A mapped result includes an opaque `generation`. Its ranges use UTF-16 string offsets: `start` is inclusive and `end` is exclusive. Slice the exact snapshot text with those offsets. Lines and columns start at one. CRLF counts as one line break; the initial BOM counts as one column. These are not UTF-8 byte offsets.
+
+Mappings come from the parser's AST positions and the editor model. Blintz never searches rendered text or the DOM for a matching task. Repeated tasks keep separate ranges. Decoded entities, escaped text, generated breaks, code and frontmatter may return `unavailable` instead of a guessed selection.
+
+Every model edit invalidates the old generation. Use `port.generation()` to read the current one. A request carrying an older generation returns `stale`. A retained port returns `disposed` after unmount.
+
+After a host confirms new raw text, call `port.bindSource(text, port.generation())`. Blintz parses that exact text independently. It accepts the new mapping only if the parsed document equals the live editor model. Otherwise it returns `model-mismatch`. This call never replaces the document, moves the selection or clears Undo history. It is not a save receipt. The host must supply the actual text and verify its own file version.
+
+The optional `sourceRevision` prop identifies an external source revision, including equal-text replacements. Changing callbacks or this revision does not remount the editor.
+
+### Host-controlled tasks
+
+Pass `onTaskToggleRequest` to handle task changes outside the editor. The callback receives `{ generation, task, done }` before any local checkbox change. `task.marker` identifies the exact `[ ]`, `[x]` or `[X]` span.
+
+Blintz does not change the checkbox or report a save when this callback exists. The host must perform its authorized write and supply the resulting source. Failed requests leave the checkbox unchanged. Unmapped tasks show a static indicator. Read-only tasks have no checkbox control.
+
+Without this callback, editable tasks keep their normal local toggle behavior. Source locations never grant write permission and do not verify a server-side file version.
+
+Source callbacks become active after their React render commits. Suspended render
+attempts cannot remove the current task interceptor. A late or replaced
+`onSourceReady` receives the current port without recreating the editor. Each
+actual editor lifetime has its own port; Activity hide/show can recreate the
+editor from the latest committed host source and revision, and ports from the
+destroyed lifetime remain disposed. Suspended source updates do not become seeds.
