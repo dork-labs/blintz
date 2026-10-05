@@ -120,7 +120,8 @@ export class SourceController {
   /** Suppress a serializer notification for the exact already-persisted marker model only. */
   confirmedChangeText(state: EditorState): string | undefined {
     const stage = this.#ack;
-    if (stage?.applied && state.doc.eq(stage.transaction.doc)) return stage.parsed.text;
+    if (stage?.applied && stage.generation === this.generation &&
+        matchesSourceDocument(this, stage.parsed.doc, state)) return stage.parsed.text;
     return this.#acknowledged?.doc === state.doc ? this.#acknowledged.text : undefined;
   }
   /** Consume only the single controlled value accompanying the exact committed marker model. */
@@ -142,6 +143,10 @@ export class SourceController {
   }
   /** A derived-only transaction may preserve existing evidence, never restore it. */
   preserveSource(state: EditorState): boolean {
+    const stage = this.#ack;
+    if (stage?.applied && !stage.committed)
+      return stage.generation === this.generation &&
+        matchesSourceDocument(this, stage.parsed.doc, state);
     return !!this.parsed && matchesSourceDocument(this, this.parsed.doc, state);
   }
   invalidate() {
