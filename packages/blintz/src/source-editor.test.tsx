@@ -3,9 +3,10 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { act, StrictMode, Suspense, startTransition, Activity } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import type { Ctx } from "@milkdown/kit/ctx";
-import { editorViewCtx, parserCtx } from "@milkdown/kit/core";
+import { editorViewCtx, parserCtx, prosePluginsCtx } from "@milkdown/kit/core";
 import { listenerCtx } from "@milkdown/kit/plugin/listener";
 import { undo } from "@milkdown/kit/prose/history";
+import { Plugin } from "@milkdown/kit/prose/state";
 import { MarkdownEditor } from "./MarkdownEditor";
 import type {
   MarkdownSourcePort,
@@ -661,4 +662,67 @@ it("keeps exact BOM, CRLF, Unicode and uppercase-X bytes for an acknowledged no-
   });
   expect(port!.snapshot()).toMatchObject({ kind: "mapped", value: { text: raw } });
   expect(onChange).not.toHaveBeenCalled();
+});
+
+
+it("carries only the default derived tail through a confirmed terminal-list marker and its inverse", async () => {
+  const before = "- [ ] original\n", after = "- [x] original\n";
+  let port: MarkdownSourcePort | undefined;
+  const onChange = vi.fn();
+  await act(async () => root.render(<MarkdownEditor value={before} onChange={onChange}
+    onSourceReady={(value) => { port = value; }} onTaskToggleRequest={() => {}} />));
+  await waitPort(() => port);
+  const surface = container.querySelector<HTMLElement>(".ProseMirror")!;
+  const button = container.querySelector<HTMLButtonElement>('button[role="checkbox"]')!;
+  button.focus();
+  const task = port!.taskAt(1);
+  if (task.kind !== "mapped") throw new Error("Expected original terminal task mapping");
+  await act(async () => {
+    expect(port!.applyConfirmedTaskToggle({ generation: task.generation, task: task.value, done: true }, after))
+      .toMatchObject({ kind: "mapped", value: { text: after } });
+  });
+  expect(surface.querySelectorAll(":scope > p")).toHaveLength(1);
+  expect(surface.lastElementChild?.textContent).toBe("");
+  expect(container.querySelector(".ProseMirror")).toBe(surface);
+  expect(container.querySelector('button[role="checkbox"]')).toBe(button);
+  expect(document.activeElement).toBe(button);
+  expect(button.getAttribute("aria-checked")).toBe("true");
+  const inverse = port!.taskAt(1);
+  if (inverse.kind !== "mapped") throw new Error("Expected confirmed inverse task mapping");
+  await act(async () => {
+    expect(port!.applyConfirmedTaskToggle({ generation: inverse.generation, task: inverse.value, done: false }, before))
+      .toMatchObject({ kind: "mapped", value: { text: before } });
+  });
+  expect(port!.snapshot()).toMatchObject({ kind: "mapped", value: { text: before } });
+  expect(button.getAttribute("aria-checked")).toBe("false");
+  expect(surface.querySelectorAll(":scope > p")).toHaveLength(1);
+  expect(onChange).not.toHaveBeenCalled();
+});
+
+it("refuses an unrelated custom appended model during a confirmed terminal-list marker", async () => {
+  let port: MarkdownSourcePort | undefined;
+  let appended = false;
+  const plugins: BlintzPlugin[] = [({ editor }) => {
+    editor.config((ctx) => ctx.update(prosePluginsCtx, (current) => [...current, new Plugin({
+      appendTransaction(transactions, _previous, state) {
+        if (appended || !transactions.some((transaction) => transaction.docChanged) ||
+            state.doc.nodeAt(1)?.attrs.checked !== true) return;
+        appended = true;
+        return state.tr.insert(state.doc.content.size,
+          state.schema.nodes.paragraph!.create(null, state.schema.text("unrelated")));
+      },
+    })]));
+  }];
+  await act(async () => root.render(<MarkdownEditor value={"- [ ] original\n"} plugins={plugins}
+    onSourceReady={(value) => { port = value; }} onTaskToggleRequest={() => {}} />));
+  await waitPort(() => port);
+  const task = port!.taskAt(1);
+  if (task.kind !== "mapped") throw new Error("Expected original terminal task mapping");
+  await act(async () => {
+    expect(port!.applyConfirmedTaskToggle({ generation: task.generation, task: task.value, done: true }, "- [x] original\n"))
+      .toMatchObject({ kind: "unavailable", reason: "model-mismatch" });
+  });
+  expect(appended).toBe(true);
+  expect(container.querySelector(".ProseMirror")?.textContent).toContain("unrelated");
+  expect(port!.snapshot()).toMatchObject({ kind: "unavailable", reason: "unmapped" });
 });
