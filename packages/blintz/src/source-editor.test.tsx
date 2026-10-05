@@ -4,6 +4,7 @@ import { act, StrictMode, Suspense, startTransition, Activity } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import type { Ctx } from "@milkdown/kit/ctx";
 import { editorViewCtx, parserCtx } from "@milkdown/kit/core";
+import { listenerCtx } from "@milkdown/kit/plugin/listener";
 import { undo } from "@milkdown/kit/prose/history";
 import { MarkdownEditor } from "./MarkdownEditor";
 import type {
@@ -103,6 +104,8 @@ it("intercepts a mapped task once before mutation, keeps current callbacks and e
     kind: "unavailable",
     reason: "stale",
   });
+  // The captured request before an independent same-byte host revision is stale too.
+  expect(port!.applyConfirmedTaskToggle(second.mock.calls[0]![0], "- [x] original\n\nTail\n")).toMatchObject({ kind: "unavailable", reason: "stale" });
   // A clipboard or speculative parser call is not a host-confirmed source.
   const parsedLocal = ctx!.get(parserCtx)("- [ ] clipboard\n\nTail\n");
   await act(async () => {
@@ -478,3 +481,184 @@ it.each([false, true])(
     if (changed) expect(container.textContent).toContain("HOST_UPDATED😀");
   },
 );
+
+it("default editor maps heading-bearing raw source and host task requests without remounting", async () => {
+  const raw = "\ufeff# Café😀\r\n\r\n- [ ] original\r\n";
+  let port: MarkdownSourcePort | undefined;
+  const callback = vi.fn();
+  const ready = (value: MarkdownSourcePort) => {
+    port = value;
+  };
+  await act(async () =>
+    root.render(
+      <MarkdownEditor
+        value={raw}
+        onSourceReady={ready}
+        onTaskToggleRequest={callback}
+      />,
+    ),
+  );
+  await waitPort(() => port);
+  expect(port!.snapshot()).toMatchObject({
+    kind: "mapped",
+    value: { text: raw },
+  });
+  const element = container.querySelector(".ProseMirror"),
+    generation = port!.generation();
+  await act(async () =>
+    container
+      .querySelector<HTMLButtonElement>('button[role="checkbox"]')!
+      .click(),
+  );
+  expect(callback).toHaveBeenCalledTimes(1);
+  const request = callback.mock.calls[0]![0];
+  expect(raw.slice(request.task.marker.start, request.task.marker.end)).toBe(
+    "[ ]",
+  );
+  await act(async () =>
+    root.render(
+      <MarkdownEditor
+        value={raw}
+        sourceRevision="confirmed"
+        onSourceReady={ready}
+        onTaskToggleRequest={callback}
+      />,
+    ),
+  );
+  expect(container.querySelector(".ProseMirror")).toBe(element);
+  expect(port!.generation()).not.toBe(generation);
+  expect(port!.snapshot().kind).toBe("mapped");
+});
+it("custom extension heading configuration remains conservatively unmapped", async () => {
+  let port: MarkdownSourcePort | undefined;
+  const plugins: BlintzPlugin[] = [() => {}];
+  await act(async () =>
+    root.render(
+      <MarkdownEditor
+        value="# Custom\n\n- [ ] task\n"
+        plugins={plugins}
+        onSourceReady={(value) => {
+          port = value;
+        }}
+        onTaskToggleRequest={() => {}}
+      />,
+    ),
+  );
+  await waitPort(() => port);
+  expect(port!.snapshot()).toMatchObject({
+    kind: "unavailable",
+    reason: "unmapped",
+  });
+  expect(container.querySelector('button[role="checkbox"]')).toBeNull();
+});
+
+it("applies only a confirmed task marker without remount, caret/focus/scroll loss or clearing prior Undo", async () => {
+  let ctx: Ctx | undefined, port: MarkdownSourcePort | undefined;
+  let request: SourceTaskToggleRequest | undefined;
+  const plugins: BlintzPlugin[] = [({ editor }) => { editor.config(value => { ctx = value; }); }];
+  const render = async (value: string, revision: string) => {
+    await act(async () => root.render(<MarkdownEditor value={value} sourceRevision={revision} plugins={plugins}
+      onSourceReady={value => { port = value; }} onTaskToggleRequest={value => { request = value; }} />));
+  };
+  await render("- [ ] original\n\nTail\n", "file-1");
+  await waitPort(() => port);
+  const view = ctx!.get(editorViewCtx), dom = view.dom;
+  await act(async () => { view.dispatch(view.state.tr.insertText("X", 3)); });
+  const before = "- [ ] Xoriginal\n\nTail\n";
+  await act(async () => { expect(port!.bindSource(before, port!.generation()).kind).toBe("mapped"); });
+  view.focus(); container.scrollTop = 37;
+  const selection = view.state.selection, focused = document.activeElement;
+  await act(async () => { container.querySelector<HTMLButtonElement>('button[role="checkbox"]')!.click(); });
+  expect(request).toBeDefined();
+  const generation = port!.generation(), doc = view.state.doc;
+  expect(port!.applyConfirmedTaskToggle(request!, "- [x] DIFFERENT\n\nTail\n")).toMatchObject({ kind: "unavailable", reason: "model-mismatch" });
+  expect(view.state.doc).toBe(doc); expect(port!.generation()).toBe(generation);
+  const confirmed = "- [x] Xoriginal\n\nTail\n";
+  await act(async () => { expect(port!.applyConfirmedTaskToggle(request!, confirmed)).toMatchObject({ kind: "mapped", value: { text: confirmed } }); });
+  expect(ctx!.get(editorViewCtx)).toBe(view); expect(view.dom).toBe(dom);
+  expect(view.state.selection.eq(selection)).toBe(true);
+  expect(document.activeElement).toBe(focused); expect(container.scrollTop).toBe(37);
+  expect(container.querySelector('button[role="checkbox"]')!.getAttribute("aria-checked")).toBe("true");
+  expect(port!.applyConfirmedTaskToggle(request!, confirmed)).toMatchObject({ kind: "unavailable", reason: "stale" });
+  const acknowledgedDoc = view.state.doc, acknowledgedGeneration = port!.generation();
+  await render(confirmed, "file-2");
+  expect(view.state.doc).toBe(acknowledgedDoc); expect(port!.generation()).toBe(acknowledgedGeneration);
+  expect(view.state.selection.eq(selection)).toBe(true); expect(view.dom).toBe(dom);
+  // A later independent same-byte revision is not another acknowledgement carry.
+  await render(confirmed, "file-3");
+  expect(port!.generation()).not.toBe(acknowledgedGeneration);
+  expect(port!.taskAt(0, acknowledgedGeneration)).toMatchObject({ kind: "unavailable", reason: "stale" });
+  await act(async () => { expect(undo(view.state, view.dispatch)).toBe(true); });
+  expect(view.state.doc.textContent).toContain("original");
+  expect(view.state.doc.textContent).not.toContain("Xoriginal");
+  let checked: unknown;
+  view.state.doc.descendants(node => { if (node.type.name === "list_item") checked = node.attrs.checked; });
+  expect(checked).toBe(true);
+  // A synchronous host rebind during the source event cannot be returned as this acknowledgement.
+  const currentText = "- [x] original\n\nTail\n";
+  expect(port!.bindSource(currentText, port!.generation()).kind).toBe("mapped");
+  const currentTask = port!.taskAt(1);
+  expect(currentTask.kind).toBe("mapped");
+  if (currentTask.kind !== "mapped") throw new Error("Expected task");
+  const nextText = "- [ ] original\n\nTail\n";
+  view.dom.addEventListener("blintz:source", () => { port!.bindSource(nextText, port!.generation()); }, { once: true });
+  await act(async () => {
+    expect(port!.applyConfirmedTaskToggle({ generation: currentTask.generation, task: currentTask.value, done: false }, nextText)).toMatchObject({ kind: "unavailable", reason: "stale" });
+  });
+});
+
+it("does not autosave an acknowledged marker, but still reports a later user edit", async () => {
+  let ctx: Ctx | undefined, port: MarkdownSourcePort | undefined;
+  let request: SourceTaskToggleRequest | undefined;
+  let serialized!: () => void;
+  const notification = new Promise<void>((resolve) => { serialized = resolve; });
+  const onChange = vi.fn();
+  const plugins: BlintzPlugin[] = [({ editor }) => editor.config((value) => {
+    ctx = value;
+    value.get(listenerCtx).markdownUpdated(() => { serialized(); });
+  })];
+  await act(async () => root.render(<MarkdownEditor value={"- [ ] original\n\nTail\n"}
+    plugins={plugins} onChange={onChange} onSourceReady={(value) => { port = value; }}
+    onTaskToggleRequest={(value) => { request = value; }} />));
+  await waitPort(() => port);
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+  try {
+    // A real user transaction has an outstanding debounced serializer notification.
+    // The host acknowledgement below confirms that edit and the requested marker.
+    await act(async () => {
+      const view = ctx!.get(editorViewCtx);
+      view.dispatch(view.state.tr.insertText("X", 3));
+      expect(port!.bindSource("- [ ] Xoriginal\n\nTail\n", port!.generation()).kind).toBe("mapped");
+    });
+    await act(async () => { container.querySelector<HTMLButtonElement>('button[role="checkbox"]')!.click(); });
+    await act(async () => {
+      expect(port!.applyConfirmedTaskToggle(request!, "- [x] Xoriginal\n\nTail\n")).toMatchObject({ kind: "mapped" });
+    });
+    // Milkdown skips addToHistory=false transactions, but the pending genuine
+    // user serializer notification must not resave its now-acknowledged model.
+    await act(async () => { await vi.advanceTimersByTimeAsync(200); });
+    await notification;
+    expect(onChange).not.toHaveBeenCalled();
+    await act(async () => { const view = ctx!.get(editorViewCtx); view.dispatch(view.state.tr.insertText("Z", 3)); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(200); });
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange.mock.calls[0]![0]).toContain("ZXoriginal");
+  } finally { vi.useRealTimers(); }
+});
+it("keeps exact BOM, CRLF, Unicode and uppercase-X bytes for an acknowledged no-op", async () => {
+  let port: MarkdownSourcePort | undefined;
+  const raw = "\ufeff- [X] café😀\r\n\r\nTail\r\n";
+  const onChange = vi.fn();
+  await act(async () => root.render(<MarkdownEditor value={raw} onChange={onChange}
+    onSourceReady={(value) => { port = value; }} onTaskToggleRequest={() => {}} />));
+  await waitPort(() => port);
+  const task = port!.taskAt(1);
+  expect(task.kind).toBe("mapped");
+  if (task.kind !== "mapped") throw new Error("Expected original task mapping");
+  await act(async () => {
+    expect(port!.applyConfirmedTaskToggle({ generation: task.generation, task: task.value, done: true }, raw))
+      .toMatchObject({ kind: "mapped", value: { text: raw } });
+  });
+  expect(port!.snapshot()).toMatchObject({ kind: "mapped", value: { text: raw } });
+  expect(onChange).not.toHaveBeenCalled();
+});

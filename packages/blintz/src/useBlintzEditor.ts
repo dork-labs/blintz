@@ -12,7 +12,6 @@ import { clipboard } from "@milkdown/kit/plugin/clipboard";
 import { history } from "@milkdown/kit/plugin/history";
 import { indent } from "@milkdown/kit/plugin/indent";
 import { listener, listenerCtx } from "@milkdown/kit/plugin/listener";
-import { trailing } from "@milkdown/kit/plugin/trailing";
 import { upload } from "@milkdown/kit/plugin/upload";
 import { replaceAll } from "@milkdown/kit/utils";
 import { useEditor, useInstance } from "@milkdown/react";
@@ -24,15 +23,12 @@ import type {
 import type { CtxHolder } from "./shared/editor-ctx";
 import type { BlintzPlugin } from "./plugin";
 import { SourceController, type SourceCallbacks } from "./source-controller";
-import { sourcePlugin } from "./source-plugin";
+import { sourceEditorAssembly } from "./source-plugin";
 import { DEFAULT_EDITABLE, editablePredicate } from "./read-only";
 import { blockEditFeature } from "./features/block-edit/plugins";
 import { codeMirrorFeature } from "./features/code-block";
 import { cursorFeature } from "./features/cursor";
-import {
-  commonmarkWithoutEmptyLinePreservation,
-  stripEmptyLineBreaks,
-} from "./features/empty-paragraphs";
+import { stripEmptyLineBreaks } from "./features/empty-paragraphs";
 import { frontmatterFeature } from "./features/frontmatter";
 import { imageBlockFeature } from "./features/image-block";
 import { latexFeature } from "./features/latex";
@@ -152,22 +148,22 @@ export function useBlintzEditor({
         }));
         ctx.get(listenerCtx).markdownUpdated((_ctx: Ctx, md, prevMd) => {
           if (md === prevMd) return;
+          const confirmed = source.confirmedChangeText(_ctx.get(editorViewCtx).state);
+          if (confirmed !== undefined) { editorValueRef.current = confirmed; return; }
           editorValueRef.current = md;
           onChangeRef.current?.(md);
         });
       })
       // commonmark, minus its empty-line `<br />` round-trip hack (we store
       // clean markdown), plus a parse-time strip of legacy `<br />` artifacts.
-      .use(commonmarkWithoutEmptyLinePreservation)
+      .use(sourceEditorAssembly(source, pluginsRef.current ?? [], true))
       .use(stripEmptyLineBreaks)
       .use(gfm)
       .use(history)
       .use(indent)
-      .use(trailing)
       .use(clipboard)
       .use(upload)
-      .use(listener)
-      .use(sourcePlugin(source));
+      .use(listener);
 
     // Features (share the engine above; each registers its own views/plugins).
     // frontmatter first: pure grammar (remark + schema), nothing depends on it.
@@ -227,6 +223,10 @@ export function useBlintzEditor({
     )
       return;
     revisionRef.current = sourceRevision;
+    if (sourceRef.current!.consumeConfirmedValue(value)) {
+      editorValueRef.current = value;
+      return;
+    }
     if (value === editorValueRef.current) {
       const source = sourceRef.current!;
       source.invalidate();
