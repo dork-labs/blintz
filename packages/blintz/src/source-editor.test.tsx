@@ -565,7 +565,7 @@ it("applies only a confirmed task marker without remount, caret/focus/scroll los
   const view = ctx!.get(editorViewCtx), dom = view.dom;
   await act(async () => { view.dispatch(view.state.tr.insertText("X", 3)); });
   const before = "- [ ] Xoriginal\n\nTail\n";
-  expect(port!.bindSource(before, port!.generation()).kind).toBe("mapped");
+  await act(async () => { expect(port!.bindSource(before, port!.generation()).kind).toBe("mapped"); });
   view.focus(); container.scrollTop = 37;
   const selection = view.state.selection, focused = document.activeElement;
   await act(async () => { container.querySelector<HTMLButtonElement>('button[role="checkbox"]')!.click(); });
@@ -597,7 +597,7 @@ it("applies only a confirmed task marker without remount, caret/focus/scroll los
   // A synchronous host rebind during the source event cannot be returned as this acknowledgement.
   const currentText = "- [x] original\n\nTail\n";
   expect(port!.bindSource(currentText, port!.generation()).kind).toBe("mapped");
-  const currentTask = port!.taskAt(0);
+  const currentTask = port!.taskAt(1);
   expect(currentTask.kind).toBe("mapped");
   if (currentTask.kind !== "mapped") throw new Error("Expected task");
   const nextText = "- [ ] original\n\nTail\n";
@@ -621,7 +621,7 @@ it("does not autosave an acknowledged marker, but still reports a later user edi
     plugins={plugins} onChange={onChange} onSourceReady={(value) => { port = value; }}
     onTaskToggleRequest={(value) => { request = value; }} />));
   await waitPort(() => port);
-  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
   try {
     // A real user transaction has an outstanding debounced serializer notification.
     // The host acknowledgement below confirms that edit and the requested marker.
@@ -652,7 +652,7 @@ it("keeps exact BOM, CRLF, Unicode and uppercase-X bytes for an acknowledged no-
   await act(async () => root.render(<MarkdownEditor value={raw} onChange={onChange}
     onSourceReady={(value) => { port = value; }} onTaskToggleRequest={() => {}} />));
   await waitPort(() => port);
-  const task = port!.taskAt(0);
+  const task = port!.taskAt(1);
   expect(task.kind).toBe("mapped");
   if (task.kind !== "mapped") throw new Error("Expected original task mapping");
   await act(async () => {

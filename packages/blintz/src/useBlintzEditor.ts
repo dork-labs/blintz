@@ -12,7 +12,6 @@ import { clipboard } from "@milkdown/kit/plugin/clipboard";
 import { history } from "@milkdown/kit/plugin/history";
 import { indent } from "@milkdown/kit/plugin/indent";
 import { listener, listenerCtx } from "@milkdown/kit/plugin/listener";
-import { trailing } from "@milkdown/kit/plugin/trailing";
 import { upload } from "@milkdown/kit/plugin/upload";
 import { replaceAll } from "@milkdown/kit/utils";
 import { useEditor, useInstance } from "@milkdown/react";
@@ -157,12 +156,11 @@ export function useBlintzEditor({
       })
       // commonmark, minus its empty-line `<br />` round-trip hack (we store
       // clean markdown), plus a parse-time strip of legacy `<br />` artifacts.
-      .use(sourceEditorAssembly(source, pluginsRef.current ?? []))
+      .use(sourceEditorAssembly(source, pluginsRef.current ?? [], true))
       .use(stripEmptyLineBreaks)
       .use(gfm)
       .use(history)
       .use(indent)
-      .use(trailing)
       .use(clipboard)
       .use(upload)
       .use(listener);

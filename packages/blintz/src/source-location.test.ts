@@ -7,6 +7,7 @@ import {
   rootCtx,
   schemaCtx,
   remarkCtx,
+  remarkPluginsCtx,
   nodesCtx,
   prosePluginsCtx,
   editorStateTimerCtx,
@@ -19,6 +20,7 @@ import {
 } from "@milkdown/kit/preset/commonmark";
 import { Ctx, Clock, Container } from "@milkdown/kit/ctx";
 import { Plugin } from "@milkdown/kit/prose/state";
+import { trailingConfig } from "@milkdown/kit/plugin/trailing";
 import { Schema } from "@milkdown/kit/prose/model";
 import type { NodeSpec } from "@milkdown/kit/prose/model";
 import { matchesHeadingSpec } from "./source-model";
@@ -283,6 +285,7 @@ async function headingFixture(
   raw: string,
   extensions: readonly unknown[] = [],
   configure?: (ctx: Ctx) => void,
+  includeTrailing = false,
 ) {
   const root = document.createElement("div");
   document.body.append(root);
@@ -293,7 +296,7 @@ async function headingFixture(
       ctx.set(defaultValueCtx, raw);
       configure?.(ctx);
     })
-    .use(sourceEditorAssembly(controller, extensions))
+    .use(sourceEditorAssembly(controller, extensions, includeTrailing))
     .use(gfm);
   editors.push(editor);
   await editor.create();
@@ -527,7 +530,7 @@ it("refuses replacement current Schema and replacement native plugin identity", 
   );
   expect(
     other.port.bindSource("# Plugin\n", other.port.generation()),
-  ).toMatchObject({ kind: "unavailable", reason: "model-mismatch" });
+  ).toMatchObject({ kind: "unavailable", reason: "disposed" });
   const raw = await headingFixture("Plain\n");
   expect(raw.port.bindSource("Plain\n", raw.port.generation()).kind).toBe(
     "mapped",
@@ -590,8 +593,9 @@ it("failed ParserReady retains the original cause and delegates native node clea
       schemaCtx,
       new Schema({ nodes: { doc: { content: "text*" }, text: {} } }),
     );
+    const sourceResult = h.source();
     h.ctx.done(SchemaReady);
-    await expect(h.source()).rejects.toBe(cause);
+    await expect(sourceResult).rejects.toBe(cause);
     expect(cleanups).toBe(1);
     expect(h.ctx.get(nodesCtx)).toEqual([]);
     expect(controller.port.snapshot()).toMatchObject({
@@ -677,7 +681,7 @@ it("refuses stale outer LF rebinding after a genuine Remark callback installs ne
   let h: Awaited<ReturnType<typeof headingFixture>>;
   let generation = "";
   h = await headingFixture(outerRaw, [], (ctx) => {
-    ctx.get(remarkCtx).use(() => () => {
+    ctx.update(remarkPluginsCtx, (plugins) => [...plugins, { plugin: () => () => {
       if (!armed || nested) return;
       nested = true;
       try {
@@ -685,7 +689,7 @@ it("refuses stale outer LF rebinding after a genuine Remark callback installs ne
       } finally {
         nested = false;
       }
-    });
+    } }]);
   });
   generation = h.port.generation();
   const view = h.view,
@@ -721,11 +725,11 @@ it("returns disposed when a genuine configured Remark callback destroys the actu
   let armed = false;
   let h: Awaited<ReturnType<typeof headingFixture>>;
   h = await headingFixture("Paragraph\n", [], (ctx) => {
-    ctx.get(remarkCtx).use(() => () => {
+    ctx.update(remarkPluginsCtx, (plugins) => [...plugins, { plugin: () => () => {
       if (!armed) return;
       armed = false;
       ctx.get(editorViewCtx).destroy();
-    });
+    } }]);
   });
   const generation = h.port.generation();
   armed = true;
@@ -738,4 +742,27 @@ it("returns disposed when a genuine configured Remark callback destroys the actu
     kind: "unavailable",
     reason: "disposed",
   });
+});
+
+it("retains only the original default derived empty tail and refuses custom trailing effects", async () => {
+  const raw = "# Heading\n\n- [ ] task\n";
+  const original = await headingFixture(raw, [], undefined, true);
+  expect(original.view.state.doc.lastChild?.type.name).toBe("paragraph");
+  expect(original.view.state.doc.lastChild?.content.size).toBe(0);
+  const taskPositions: number[] = [];
+  original.view.state.doc.descendants((node, pos) => {
+    if (node.type.name === "list_item") taskPositions.push(pos);
+  });
+  expect(original.port.snapshot()).toMatchObject({kind: "mapped", value: {text: raw}});
+  expect(original.port.taskAt(taskPositions[0]!)).toMatchObject({kind: "mapped", value: {checked: false}});
+  const document = original.view.state.doc;
+  expect(original.port.bindSource(raw, original.port.generation()).kind).toBe("mapped");
+  expect(original.view.state.doc).toBe(document);
+  original.view.dispatch(original.view.state.tr.insertText("authored tail", document.content.size - 1));
+  expect(original.port.bindSource(raw, original.port.generation())).toMatchObject({kind: "unavailable", reason: "model-mismatch"});
+  const custom = await headingFixture(raw, [], (ctx) => {
+    ctx.update(trailingConfig.key, (config) => ({...config, getNode: (state) => state.schema.nodes.paragraph!.create()}));
+  }, true);
+  expect(custom.port.snapshot().kind).toBe("unavailable");
+  expect(custom.port.bindSource(raw, custom.port.generation())).toMatchObject({kind: "unavailable", reason: "model-mismatch"});
 });

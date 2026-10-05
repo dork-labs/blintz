@@ -16,6 +16,7 @@ import {
 import type { Ctx } from "@milkdown/kit/ctx";
 import type { Node, Schema, NodeSpec } from "@milkdown/kit/prose/model";
 import type { EditorState } from "@milkdown/kit/prose/state";
+import { trailingConfig, trailingPlugin, type TrailingConfigOptions } from "@milkdown/kit/plugin/trailing";
 import {
   headingIdGenerator,
   headingSchema,
@@ -40,6 +41,7 @@ type AssemblyLifetime = {
   plugin?: Plugin;
   nodeCleanup?: () => void | Promise<void>;
   extensions: boolean;
+  trailing?: { config: TrailingConfigOptions; plugin?: Plugin; shouldAppend: unknown; getNode: unknown };
 };
 type OwnedAssembly =
   | { phase: "pending"; value: AssemblyLifetime }
@@ -56,6 +58,9 @@ type OwnedAssembly =
     }
   | { phase: "disposed"; value: AssemblyLifetime };
 const owned = new WeakMap<SourceController, OwnedAssembly>();
+// Retain the installed engine's default functions before any editor config runs.
+const defaultTrailingShouldAppend = trailingConfig.key._defaultValue.shouldAppend;
+const defaultTrailingGetNode = trailingConfig.key._defaultValue.getNode;
 function finishReady(controller: SourceController, value: AssemblyLifetime) {
   if (
     owned.get(controller)?.value !== value ||
@@ -116,7 +121,20 @@ export function matchesSourceDocument(
       !matchesHeadingSpec(value.registered, heading.spec)
     )
       return false;
-    return matchesDerivedHeadingDocument(parsed, state.doc, heading);
+    let actual = state.doc;
+    const trailing = value.value.trailing;
+    if (
+      trailing?.plugin && state.plugins.includes(trailing.plugin) &&
+      ctx.get(trailingConfig.key) === trailing.config &&
+      trailing.config.shouldAppend === trailing.shouldAppend &&
+      trailing.config.getNode === trailing.getNode &&
+      trailing.shouldAppend === defaultTrailingShouldAppend &&
+      trailing.getNode === defaultTrailingGetNode &&
+      parsed.childCount + 1 === actual.childCount &&
+      parsed.lastChild && !["heading", "paragraph"].includes(parsed.lastChild.type.name) &&
+      actual.lastChild?.eq(state.schema.nodes.paragraph!.create())
+    ) actual = actual.copy(actual.content.cut(0, actual.content.size - actual.lastChild!.nodeSize));
+    return matchesDerivedHeadingDocument(parsed, actual, heading);
   } catch {
     return false;
   }
@@ -126,6 +144,7 @@ export function matchesSourceDocument(
 export function sourceEditorAssembly(
   controller: SourceController,
   extensions: readonly unknown[],
+  includeTrailing = false,
 ): MilkdownPlugin[] {
   const value: AssemblyLifetime = {
     phase: "pending",
@@ -269,7 +288,24 @@ export function sourceEditorAssembly(
       throw error;
     }
   };
-  return [...preset, boundSource];
+  const trailing: MilkdownPlugin[] = includeTrailing ? [
+    (ctx) => {
+      const runner = trailingConfig(ctx);
+      const config = ctx.get(trailingConfig.key);
+      value.trailing = { config, shouldAppend: config.shouldAppend, getNode: config.getNode };
+      return runner;
+    },
+    (ctx) => {
+      const runner = trailingPlugin(ctx);
+      return async () => {
+        const cleanup = await runner();
+        const plugin = trailingPlugin.plugin();
+        if (value.trailing && ctx.get(prosePluginsCtx).includes(plugin)) value.trailing.plugin = plugin;
+        return () => { if (typeof cleanup === "function") return cleanup(); };
+      };
+    },
+  ] : [];
+  return [...preset, ...trailing, boundSource];
 }
 export const sourceControllerCtx = createSlice<SourceController | null>(
   null,
