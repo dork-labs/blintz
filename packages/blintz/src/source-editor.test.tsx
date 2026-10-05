@@ -621,16 +621,29 @@ it("does not autosave an acknowledged marker, but still reports a later user edi
     plugins={plugins} onChange={onChange} onSourceReady={(value) => { port = value; }}
     onTaskToggleRequest={(value) => { request = value; }} />));
   await waitPort(() => port);
-  await act(async () => { container.querySelector<HTMLButtonElement>('button[role="checkbox"]')!.click(); });
-  await act(async () => {
-    expect(port!.applyConfirmedTaskToggle(request!, "- [x] original\n\nTail\n")).toMatchObject({ kind: "mapped" });
-  });
-  // Wait for the genuine Milkdown serializer callback, not an elapsed quiet period.
-  await notification;
-  expect(onChange).not.toHaveBeenCalled();
-  await act(async () => { const view = ctx!.get(editorViewCtx); view.dispatch(view.state.tr.insertText("Z", 3)); });
-  await vi.waitFor(() => expect(onChange).toHaveBeenCalledTimes(1));
-  expect(onChange.mock.calls[0]![0]).toContain("Zoriginal");
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  try {
+    // A real user transaction has an outstanding debounced serializer notification.
+    // The host acknowledgement below confirms that edit and the requested marker.
+    await act(async () => {
+      const view = ctx!.get(editorViewCtx);
+      view.dispatch(view.state.tr.insertText("X", 3));
+      expect(port!.bindSource("- [ ] Xoriginal\n\nTail\n", port!.generation()).kind).toBe("mapped");
+    });
+    await act(async () => { container.querySelector<HTMLButtonElement>('button[role="checkbox"]')!.click(); });
+    await act(async () => {
+      expect(port!.applyConfirmedTaskToggle(request!, "- [x] Xoriginal\n\nTail\n")).toMatchObject({ kind: "mapped" });
+    });
+    // Milkdown skips addToHistory=false transactions, but the pending genuine
+    // user serializer notification must not resave its now-acknowledged model.
+    await act(async () => { await vi.advanceTimersByTimeAsync(200); });
+    await notification;
+    expect(onChange).not.toHaveBeenCalled();
+    await act(async () => { const view = ctx!.get(editorViewCtx); view.dispatch(view.state.tr.insertText("Z", 3)); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(200); });
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange.mock.calls[0]![0]).toContain("ZXoriginal");
+  } finally { vi.useRealTimers(); }
 });
 it("keeps exact BOM, CRLF, Unicode and uppercase-X bytes for an acknowledged no-op", async () => {
   let port: MarkdownSourcePort | undefined;
