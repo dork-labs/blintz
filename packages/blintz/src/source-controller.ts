@@ -26,7 +26,7 @@ export class SourceController {
   private disposed = false;
   #acknowledged?: { doc: EditorState["doc"]; text: string; generation: string; controlled: boolean };
   #ack?: { transaction: Transaction; previous: EditorState; parsed: ParsedSource; generation: string; applied: boolean; committed: boolean };
-  parse?: (text: string) => ParsedSource;
+  parse?: (text: string, state?: EditorState) => ParsedSource;
   callbacks: SourceCallbacks = {};
   readonly port: MarkdownSourcePort = {
     applyConfirmedTaskToggle: (request, text) => this.applyConfirmedTaskToggle(request, text),
@@ -53,7 +53,7 @@ export class SourceController {
       };
       let parsed: ParsedSource;
       try {
-        parsed = parse.call(this, text);
+        parsed = parse.call(this, text, view.state);
       } catch {
         return changed() ?? { kind: "unavailable", reason: "unmapped" };
       }
@@ -84,7 +84,7 @@ export class SourceController {
     const expected = request.done === task.checked ? original.text : original.text.slice(0, marker.start + 1) + (request.done ? "x" : " ") + original.text.slice(marker.start + 2);
     if (text !== expected) return { kind: "unavailable", reason: "model-mismatch" };
     let parsed: ParsedSource;
-    try { parsed = parse.call(this, text); } catch { return { kind: "unavailable", reason: "unmapped" }; }
+    try { parsed = parse.call(this, text, previous); } catch { return { kind: "unavailable", reason: "unmapped" }; }
     if (this.disposed || this.view !== view || this.parsed !== original || this.parse !== parse || this.generation !== generation || view.state !== previous) return { kind: "unavailable", reason: "stale" };
     const node = previous.doc.nodeAt(position);
     if (!node || node.type.name !== "list_item" || node.attrs.checked !== task.checked) return { kind: "unavailable", reason: "model-mismatch" };

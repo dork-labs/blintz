@@ -789,3 +789,43 @@ it("keeps concurrent native default trailing registrations in their original edi
   expect(a.port.snapshot()).toMatchObject({kind: "unavailable", reason: "disposed"});
   expect(b.port.bindSource(rawB, b.port.generation()).kind).toBe("mapped");
 });
+
+it.each(["\n", "\r\n"])("maps one original terminal lexical space without resetting the model or later task positions: %s", async (eol) => {
+  const raw = `- [ ] First${eol}${eol}Tail${eol}${eol}- [ ] Later${eol}`;
+  const h = await headingFixture(raw, [], undefined, true);
+  let tail = 0;
+  h.view.state.doc.descendants((node, pos) => { if (node.isText && node.text === 'Tail') tail = pos; });
+  h.view.dispatch(h.view.state.tr.insertText(' ', tail + 4));
+  const actual = h.view.state.doc, selection = h.view.state.selection, generation = h.port.generation();
+  const saved = raw.replace('Tail', 'Tail ');
+  expect(h.port.bindSource(saved, generation)).toMatchObject({ kind: 'mapped', value: { text: saved } });
+  expect(h.view.state.doc).toBe(actual); expect(h.view.state.selection).toBe(selection);
+  h.view.dispatch(h.view.state.tr.setSelection(TextSelection.create(actual, tail, tail + 5)));
+  const sourceSelection = h.port.selection();
+  expect(sourceSelection.kind).toBe('mapped');
+  if (sourceSelection.kind === 'mapped') expect(sourceSelection.value.ranges.map((range) => saved.slice(range.start, range.end)).join('')).toBe('Tail ');
+  const positions: number[] = [];
+  actual.descendants((node, pos) => { if (node.type.name === 'list_item' && node.attrs.checked !== null) positions.push(pos); });
+  const later = h.port.taskAt(positions[1]!);
+  expect(later).toMatchObject({ kind: 'mapped', value: { line: 5, checked: false } });
+  if (later.kind === 'mapped') expect(saved.slice(later.value.marker.start, later.value.marker.end)).toBe('[ ]');
+  const first = h.port.taskAt(positions[0]!);
+  if (first.kind !== 'mapped') throw new Error('Original first task unavailable');
+  const request = { generation: h.port.generation(), task: first.value, done: true };
+  const confirmed = saved.slice(0, first.value.marker.start + 1) + 'x' + saved.slice(first.value.marker.start + 2);
+  expect(h.port.applyConfirmedTaskToggle(request, confirmed).kind).toBe('mapped');
+  expect(h.view.state.doc.textContent).toContain('Tail ');
+  expect(h.port.taskAt(positions[1]!)).toMatchObject({ kind: 'mapped', value: { line: 5, checked: false } });
+  expect(h.port.bindSource(confirmed.replace('Tail ', 'Other '), h.port.generation())).toMatchObject({ kind: 'unavailable', reason: 'model-mismatch' });
+});
+it('retains original initial parsing and refuses multiple-space and custom-assembly reconstruction', async () => {
+  const raw = 'Tail \n';
+  const initial = await headingFixture(raw);
+  expect(initial.view.state.doc.textContent).toBe('Tail');
+  expect(initial.port.bindSource(raw, initial.port.generation()).kind).toBe('mapped');
+  initial.view.dispatch(initial.view.state.tr.insertText(' ', 5));
+  expect(initial.port.bindSource('Tail  \n', initial.port.generation())).toMatchObject({ kind: 'unavailable', reason: 'model-mismatch' });
+  const custom = await headingFixture('Tail\n', [{}]);
+  custom.view.dispatch(custom.view.state.tr.insertText(' ', 5));
+  expect(custom.port.bindSource(raw, custom.port.generation())).toMatchObject({ kind: 'unavailable', reason: 'model-mismatch' });
+});

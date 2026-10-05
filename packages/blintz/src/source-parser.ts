@@ -4,7 +4,7 @@ import {
   type MarkdownNode,
   type RemarkParser,
 } from "@milkdown/kit/transformer";
-import type { Node, Schema } from "@milkdown/kit/prose/model";
+import { Fragment, type Node, type Schema } from "@milkdown/kit/prose/model";
 import {
   createRawCoordinateMap,
   type RawCoordinateMap,
@@ -23,6 +23,44 @@ export interface ParsedSource {
   texts: TextOrigin[];
   tasks: Map<number, SourceTask>;
 }
+type TextSpans = { length: number; start?: number; end?: number }[];
+const lexicalSources = new WeakMap<ParsedSource, {
+  origins: WeakMap<Node, MarkdownNode>;
+  textOrigins: WeakMap<Node, TextSpans>;
+  suffixes: WeakMap<Node, number>;
+}>();
+/** Reconstruct only an original paragraph's one raw terminal space when the live text contains it exactly. */
+export function reconcileSourceTerminalSpace(parsed: ParsedSource, actual: Node): ParsedSource {
+  const original = lexicalSources.get(parsed);
+  if (!original || parsed.doc.type.schema !== actual.type.schema) return parsed;
+  const visit = (node: Node, current: Node): Node => {
+    if (node.type !== current.type) return node;
+    const suffix = original.suffixes.get(node);
+    if (node.isText) {
+      const spans = original.textOrigins.get(node), last = spans?.at(-1), text = current.text;
+      if (suffix === undefined || !node.sameMarkup(current) || typeof text !== "string" || text !== node.text + " " ||
+          !spans || !last || last.end !== suffix || parsed.text[suffix] !== " ") return node;
+      const next = node.type.schema.text(text, node.marks);
+      original.textOrigins.set(next, [...spans.slice(0, -1), { ...last, length: last.length + 1, end: suffix + 1 }]);
+      return next;
+    }
+    if (current.childCount < node.childCount) return node;
+    const children: Node[] = [];
+    let changed = false;
+    for (let index = 0; index < node.childCount; index++) {
+      const child = node.child(index), next = visit(child, current.child(index));
+      children.push(next); changed ||= next !== child;
+    }
+    if (!changed) return node;
+    const next = node.copy(Fragment.fromArray(children));
+    const ast = original.origins.get(node);
+    if (ast) original.origins.set(next, ast);
+    return next;
+  };
+  const doc = visit(parsed.doc, actual);
+  if (doc === parsed.doc) return parsed;
+  return mapSource(parsed.text, parsed.coordinates, doc, original.origins, original.textOrigins);
+}
 export function parseSource(
   schema: Schema,
   remark: RemarkParser,
@@ -36,14 +74,18 @@ export function parseSource(
     { length: number; start?: number; end?: number }[]
   >();
   let active: MarkdownNode | undefined;
+  const parents: MarkdownNode[] = [];
+  const suffixes = new WeakMap<Node, number>();
   const next = state.next;
   state.next = (nodes = []) => {
     for (const node of [nodes].flat()) {
       const prev = active;
       active = node;
+      if (prev) parents.push(prev);
       try {
         next(node);
       } finally {
+        if (prev) parents.pop();
         active = prev;
       }
     }
@@ -83,10 +125,21 @@ export function parseSource(
             span,
           ],
     );
+    const parent = parents.at(-1), parentEnd = parent?.position?.end.offset;
+    if (exact && parent?.type === "paragraph" && parent.children?.at(-1) === active &&
+        typeof parentEnd === "number" && parentEnd === end! + 1 && text[end! + bom] === " " &&
+        [undefined, "\n", "\r"].includes(text[parentEnd + bom])) suffixes.set(current, end! + bom);
     return state;
   };
   state.run(remark, text);
   const doc = state.toDoc();
+  const parsed = mapSource(text, coordinates, doc, origins, textOrigins);
+  lexicalSources.set(parsed, { origins, textOrigins, suffixes });
+  return parsed;
+}
+function mapSource(text: string, coordinates: RawCoordinateMap, doc: Node,
+  origins: WeakMap<Node, MarkdownNode>, textOrigins: WeakMap<Node, TextSpans>): ParsedSource {
+  const bom = text.startsWith("\uFEFF") ? 1 : 0;
   const texts: TextOrigin[] = [],
     tasks = new Map<number, SourceTask>();
   doc.descendants((node, pos) => {

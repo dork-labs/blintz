@@ -28,7 +28,7 @@ import {
   matchesDerivedHeadingDocument,
 } from "./source-model";
 import { Plugin, PluginKey } from "@milkdown/kit/prose/state";
-import { parseSource, type ParsedSource } from "./source-parser";
+import { parseSource, reconcileSourceTerminalSpace, type ParsedSource } from "./source-parser";
 import type { SourceController } from "./source-controller";
 type AssemblyLifetime = {
   phase: "pending" | "ready" | "disposed";
@@ -88,6 +88,19 @@ function finishReady(controller: SourceController, value: AssemblyLifetime) {
   });
 }
 
+/** Terminal lexical reconstruction belongs only to the captured built-in parser/schema assembly. */
+function ownsOriginalTextAssembly(controller: SourceController, state: EditorState): boolean {
+  const value = owned.get(controller);
+  if (!value || value.phase !== "ready" || value.extensions || !value.ctx || !value.schema ||
+      !value.registered || !value.plugin) return false;
+  try {
+    const heading = value.schema.nodes.heading;
+    return !!heading && state.schema === value.schema && value.ctx.get(schemaCtx) === value.schema &&
+      value.ctx.get(headingIdGenerator.key) === value.generator && value.ctx.get(headingSchema.key) === value.factory &&
+      value.ctx.get(nodesCtx).find(([name]) => name === "heading")?.[1] === value.registered &&
+      state.plugins.includes(value.plugin) && matchesHeadingSpec(value.registered, heading.spec);
+  } catch { return false; }
+}
 /** Read-only internal comparison; no caller may publish an assembly. */
 export function matchesSourceDocument(
   controller: SourceController,
@@ -382,7 +395,11 @@ export function sourcePlugin(controller: SourceController): MilkdownPlugin {
         }
         const schema = ctx.get(schemaCtx),
           remark = ctx.get(remarkCtx);
-        controller.parse = (text) => parseSource(schema, remark, text);
+        controller.parse = (text, state) => {
+          const parsed = parseSource(schema, remark, text);
+          return state && ownsOriginalTextAssembly(controller, state)
+            ? reconcileSourceTerminalSpace(parsed, state.doc) : parsed;
+        };
         ctx.set(parserCtx, (text) => {
           const parsed = controller.parse!(text);
           if (!initialized) pending = parsed;

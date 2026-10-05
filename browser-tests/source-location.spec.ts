@@ -147,3 +147,37 @@ test("real default heading editor retains parser-origin task ranges and refuses 
     reason: "unmapped",
   });
 });
+
+declare global { interface Window { terminalSpaceHost: ReturnType<typeof import('./fixtures/source-terminal-space').mountTerminalSpaceHost>; } }
+test('complete real keyboard draft with a terminal space remains mapped through task acknowledgement and prior Undo', async ({ page }) => {
+  const path = fileURLToPath(new URL('./fixtures/source-terminal-space.tsx', import.meta.url));
+  await page.goto('/playground');
+  await page.evaluate(async (path) => {
+    const module: typeof import('./fixtures/source-terminal-space') = await import(/* @vite-ignore */ `/@fs${path}`);
+    Object.assign(window, { terminalSpaceHost: module.mountTerminalSpaceHost() });
+  }, path);
+  const host = () => page.evaluate(() => window.terminalSpaceHost.saved());
+  const draft = 'Preserved draft paragraph with genuine editor history. '.repeat(100);
+  const editor = page.locator('.ProseMirror');
+  await expect(page.getByRole('checkbox', { name: 'First', exact: true })).toBeVisible();
+  await editor.click(); await editor.press('ControlOrMeta+End'); await editor.press('Enter'); await page.keyboard.insertText(draft);
+  await expect.poll(host).toContain(draft);
+  await expect.poll(() => page.evaluate(() => window.terminalSpaceHost.bind()?.kind)).toBe('mapped');
+  await editor.press('Shift+ArrowLeft');
+  const selection = await page.evaluate(() => {
+    const host = window.terminalSpaceHost;
+    const selected = host.selection(); return selected?.kind === 'mapped' ? selected.value.ranges.map((range) => host.saved().slice(range.start, range.end)).join('') : undefined;
+  });
+  expect(selection).toBe(' ');
+  await page.getByRole('checkbox', { name: 'First', exact: true }).click();
+  expect(await page.evaluate(() => window.terminalSpaceHost.confirm().kind)).toBe('mapped');
+  await expect(page.getByRole('checkbox', { name: 'First', exact: true })).toBeChecked();
+  await expect(page.getByRole('checkbox', { name: 'Later', exact: true })).not.toBeChecked();
+  expect(await host()).toContain(draft);
+  await editor.press('ControlOrMeta+z');
+  await expect.poll(() => editor.textContent()).not.toContain(draft);
+  await expect.poll(host).not.toContain(draft);
+  await expect.poll(() => page.evaluate(() => window.terminalSpaceHost.bind()?.kind)).toBe('mapped');
+  await expect(page.getByRole('checkbox', { name: 'First', exact: true })).toBeChecked();
+  await page.evaluate(() => window.terminalSpaceHost.close());
+});
