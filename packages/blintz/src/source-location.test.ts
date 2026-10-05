@@ -377,19 +377,21 @@ it("keeps overlapping editor registrations separate and invokes each original no
   });
   const spy = vi.spyOn(headingSchema, "node").mockImplementation((ctx) => {
     const runner = original(ctx);
-    return () => {
+    return (): Promise<() => void | Promise<void>> => {
       calls.push(ctx);
       const result = runner();
       registrations.push(
         ctx.get(nodesCtx).find(([name]) => name === "heading")![1],
       );
-      return Promise.resolve(result).then(async (cleanup) => {
-        await held;
-        return () => {
-          cleanups.push(ctx);
-          if (typeof cleanup === "function") return cleanup();
-        };
-      });
+      return Promise.resolve(result).then(
+        async (cleanup): Promise<() => void | Promise<void>> => {
+          await held;
+          return () => {
+            cleanups.push(ctx);
+            if (typeof cleanup === "function") return cleanup();
+          };
+        },
+      );
     };
   });
   const index = commonmarkWithoutEmptyLinePreservation.indexOf(original);

@@ -104,7 +104,7 @@ export function matchesDerivedHeadingDocument(
           return false;
         }
         if (ids[id]) {
-          ids[id] += 1;
+          ids[id] = ids[id]! + 1;
           id += `-#${ids[id]}`;
         } else ids[id] = 1;
         expected.id = id;
