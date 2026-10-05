@@ -1,3 +1,5 @@
+import type { EditorState, Transaction } from "@milkdown/kit/prose/state";
+import { matchesSourceDocument } from "./source-plugin";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import {
   type MarkdownSourcePort,
@@ -22,9 +24,12 @@ export class SourceController {
   private parsed?: ParsedSource;
   private view?: EditorView;
   private disposed = false;
+  #acknowledged?: { doc: EditorState["doc"]; text: string; generation: string; controlled: boolean };
+  #ack?: { transaction: Transaction; previous: EditorState; parsed: ParsedSource; generation: string; applied: boolean; committed: boolean };
   parse?: (text: string) => ParsedSource;
   callbacks: SourceCallbacks = {};
   readonly port: MarkdownSourcePort = {
+    applyConfirmedTaskToggle: (request, text) => this.applyConfirmedTaskToggle(request, text),
     generation: () => this.generation,
     snapshot: () => this.snapshot(),
     selection: (generation) => this.selection(generation),
@@ -32,21 +37,99 @@ export class SourceController {
     bindSource: (text, generation) => {
       const refusal = this.refusal(generation);
       if (refusal && refusal.reason !== "unmapped") return refusal;
-      if (!this.parse || !this.view)
-        return { kind: "unavailable", reason: "unmapped" };
+      const view = this.view,
+        currentGeneration = this.generation,
+        parse = this.parse;
+      if (!parse || !view) return { kind: "unavailable", reason: "unmapped" };
+      const changed = ():
+        { kind: "unavailable"; reason: "disposed" | "stale" } | undefined => {
+        if (this.disposed) return { kind: "unavailable", reason: "disposed" };
+        if (
+          this.view !== view ||
+          this.parse !== parse ||
+          this.generation !== currentGeneration
+        )
+          return { kind: "unavailable", reason: "stale" };
+      };
       let parsed: ParsedSource;
       try {
-        parsed = this.parse(text);
+        parsed = parse.call(this, text);
       } catch {
-        return { kind: "unavailable", reason: "unmapped" };
+        return changed() ?? { kind: "unavailable", reason: "unmapped" };
       }
-      if (!parsed.doc.eq(this.view.state.doc))
-        return { kind: "unavailable", reason: "model-mismatch" };
+      const afterParse = changed();
+      if (afterParse) return afterParse;
+      const matches = matchesSourceDocument(this, parsed.doc, view.state);
+      const afterMatch = changed();
+      if (afterMatch) return afterMatch;
+      if (!matches) return { kind: "unavailable", reason: "model-mismatch" };
       this.install(parsed);
       this.selectionChanged();
       return this.snapshot();
     },
   };
+  private applyConfirmedTaskToggle(request: SourceTaskToggleRequest, text: string): SourceLocationResult<SourceSnapshot> {
+    const refusal = this.refusal(request.generation);
+    if (refusal) return refusal;
+    const view = this.view, original = this.parsed, parse = this.parse;
+    if (!view || !original || !parse || this.#ack) return { kind: "unavailable", reason: "unmapped" };
+    const generation = this.generation, previous = view.state;
+    const sameRange = (a: SourceTask["marker"], b: SourceTask["marker"]) =>
+      a.start === b.start && a.end === b.end && a.startLine === b.startLine && a.endLine === b.endLine && a.startColumn === b.startColumn && a.endColumn === b.endColumn;
+    const entry = [...original.tasks].find(([, task]) => task.line === request.task.line && task.checked === request.task.checked && sameRange(task.marker, request.task.marker) && sameRange(task.item, request.task.item));
+    if (!entry) return { kind: "unavailable", reason: "unmapped" };
+    const [position, task] = entry;
+    const marker = task.marker;
+    if (marker.end - marker.start !== 3 || !/^\[[ xX]\]$/.test(original.text.slice(marker.start, marker.end)) || typeof request.done !== "boolean") return { kind: "unavailable", reason: "model-mismatch" };
+    const expected = request.done === task.checked ? original.text : original.text.slice(0, marker.start + 1) + (request.done ? "x" : " ") + original.text.slice(marker.start + 2);
+    if (text !== expected) return { kind: "unavailable", reason: "model-mismatch" };
+    let parsed: ParsedSource;
+    try { parsed = parse.call(this, text); } catch { return { kind: "unavailable", reason: "unmapped" }; }
+    if (this.disposed || this.view !== view || this.parsed !== original || this.parse !== parse || this.generation !== generation || view.state !== previous) return { kind: "unavailable", reason: "stale" };
+    const node = previous.doc.nodeAt(position);
+    if (!node || node.type.name !== "list_item" || node.attrs.checked !== task.checked) return { kind: "unavailable", reason: "model-mismatch" };
+    const transaction = previous.tr.setNodeMarkup(position, undefined, { ...node.attrs, checked: request.done }).setMeta("addToHistory", false);
+    const stage = { transaction, previous, parsed, generation, applied: false, committed: false };
+    this.#ack = stage;
+    try {
+      view.dispatch(transaction);
+      if (!stage.committed) return { kind: "unavailable", reason: "model-mismatch" };
+      if (this.disposed || this.view !== view || this.parsed !== parsed || this.#acknowledged?.generation !== this.generation || view.state.doc !== this.#acknowledged.doc) return { kind: "unavailable", reason: "stale" };
+      return this.snapshot();
+    } finally {
+      if (this.#ack === stage) this.#ack = undefined;
+      if (!stage.committed && (stage.applied || view.state !== previous)) this.invalidate();
+    }
+  }
+  /** Only the exact privately staged marker transaction may carry new raw mapping through apply. */
+  applyConfirmedSource(transaction: Transaction, previous: EditorState, state: EditorState): boolean {
+    const stage = this.#ack;
+    if (!stage || stage.applied || stage.transaction !== transaction || stage.previous !== previous || stage.generation !== this.generation || !state.doc.eq(transaction.doc) || !matchesSourceDocument(this, stage.parsed.doc, state)) return false;
+    stage.applied = true;
+    return true;
+  }
+  /** Publish mapping only after the real view has committed the privately staged transaction. */
+  finishConfirmedSource(view: EditorView, previous: EditorState) {
+    const stage = this.#ack;
+    if (!stage || !stage.applied || stage.committed || this.view !== view || stage.previous !== previous || stage.generation !== this.generation) return;
+    if (!matchesSourceDocument(this, stage.parsed.doc, view.state)) { this.invalidate(); return; }
+    stage.committed = true;
+    this.#acknowledged = { doc: view.state.doc, text: stage.parsed.text, generation: `${this.id}:${this.revision + 1}`, controlled: this.parsed?.text !== stage.parsed.text };
+    this.install(stage.parsed);
+  }
+  /** Suppress a serializer notification for the exact already-persisted marker model only. */
+  confirmedChangeText(state: EditorState): string | undefined {
+    const stage = this.#ack;
+    if (stage?.applied && state.doc.eq(stage.transaction.doc)) return stage.parsed.text;
+    return this.#acknowledged?.doc === state.doc ? this.#acknowledged.text : undefined;
+  }
+  /** Consume only the single controlled value accompanying the exact committed marker model. */
+  consumeConfirmedValue(text: string): boolean {
+    const confirmed = this.#acknowledged;
+    if (!confirmed?.controlled || confirmed.text !== text || confirmed.generation !== this.generation || this.view?.state.doc !== confirmed.doc) return false;
+    confirmed.controlled = false;
+    return true;
+  }
   attach(view: EditorView) {
     if (this.disposed) return;
     this.view = view;
@@ -56,6 +139,10 @@ export class SourceController {
     this.parsed = parsed;
     this.generation = `${this.id}:${++this.revision}`;
     this.view?.dom.dispatchEvent(new Event("blintz:source"));
+  }
+  /** A derived-only transaction may preserve existing evidence, never restore it. */
+  preserveSource(state: EditorState): boolean {
+    return !!this.parsed && matchesSourceDocument(this, this.parsed.doc, state);
   }
   invalidate() {
     this.parsed = undefined;

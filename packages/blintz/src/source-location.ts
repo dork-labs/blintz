@@ -33,6 +33,9 @@ export interface SourceTaskToggleRequest {
   done: boolean;
 }
 export interface MarkdownSourcePort {
+  /** Apply a host-confirmed single task marker to the current mapped model without resetting history.
+   * This UI transaction is not a persistence receipt; the host must verify its writer acknowledgement. */
+  applyConfirmedTaskToggle(request: SourceTaskToggleRequest, text: string): SourceLocationResult<SourceSnapshot>;
   generation(): string;
   snapshot(): SourceLocationResult<SourceSnapshot>;
   selection(generation?: string): SourceLocationResult<SourceSelection>;
