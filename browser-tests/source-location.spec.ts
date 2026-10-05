@@ -164,11 +164,16 @@ test('complete real keyboard draft with a terminal space remains mapped through 
   await expect.poll(host).toContain(draft);
   await expect.poll(() => page.evaluate(() => window.terminalSpaceHost.bind()?.kind)).toBe('mapped');
   await editor.press('Shift+ArrowLeft');
-  const selection = await page.evaluate(() => {
+  // Native selectionchange is consumed by ProseMirror's DOM observer after the
+  // keyboard event. Require both the real DOM and original mapped model witness.
+  await expect.poll(() => page.evaluate(() => {
     const host = window.terminalSpaceHost;
-    const selected = host.selection(); return selected?.kind === 'mapped' ? selected.value.ranges.map((range) => host.saved().slice(range.start, range.end)).join('') : undefined;
-  });
-  expect(selection).toBe(' ');
+    const selected = host.selection();
+    return {
+      dom: window.getSelection()?.toString(),
+      source: selected?.kind === 'mapped' ? selected.value.ranges.map((range) => host.saved().slice(range.start, range.end)).join('') : undefined,
+    };
+  })).toEqual({ dom: ' ', source: ' ' });
   await page.getByRole('checkbox', { name: 'First', exact: true }).click();
   expect(await page.evaluate(() => window.terminalSpaceHost.confirm().kind)).toBe('mapped');
   await expect(page.getByRole('checkbox', { name: 'First', exact: true })).toBeChecked();
