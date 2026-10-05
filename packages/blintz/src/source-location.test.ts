@@ -681,7 +681,7 @@ it("refuses stale outer LF rebinding after a genuine Remark callback installs ne
   let h: Awaited<ReturnType<typeof headingFixture>>;
   let generation = "";
   h = await headingFixture(outerRaw, [], (ctx) => {
-    ctx.update(remarkPluginsCtx, (plugins) => [...plugins, { plugin: () => () => {
+    ctx.update(remarkPluginsCtx, (plugins) => [...plugins, { options: {}, plugin: () => () => {
       if (!armed || nested) return;
       nested = true;
       try {
@@ -725,7 +725,7 @@ it("returns disposed when a genuine configured Remark callback destroys the actu
   let armed = false;
   let h: Awaited<ReturnType<typeof headingFixture>>;
   h = await headingFixture("Paragraph\n", [], (ctx) => {
-    ctx.update(remarkPluginsCtx, (plugins) => [...plugins, { plugin: () => () => {
+    ctx.update(remarkPluginsCtx, (plugins) => [...plugins, { options: {}, plugin: () => () => {
       if (!armed) return;
       armed = false;
       ctx.get(editorViewCtx).destroy();
@@ -765,4 +765,27 @@ it("retains only the original default derived empty tail and refuses custom trai
   }, true);
   expect(custom.port.snapshot().kind).toBe("unavailable");
   expect(custom.port.bindSource(raw, custom.port.generation())).toMatchObject({kind: "unavailable", reason: "model-mismatch"});
+});
+
+it("keeps concurrent native default trailing registrations in their original editor contexts", async () => {
+  const rawA = "# First\n\n- [ ] one\n", rawB = "# Second\n\n- [x] two\n";
+  const [a, b] = await Promise.all([
+    headingFixture(rawA, [], undefined, true),
+    headingFixture(rawB, [], undefined, true),
+  ]);
+  const tailPlugin = (state: typeof a.view.state) => state.plugins.find((plugin) => {
+    const key = plugin.spec.key;
+    const name = key && Object.getOwnPropertyDescriptor(key, "key")?.value;
+    return typeof name === "string" && /^MILKDOWN_TRAILING\$\d*$/.test(name);
+  });
+  expect(tailPlugin(a.view.state)).toBeDefined();
+  expect(tailPlugin(b.view.state)).toBeDefined();
+  expect(tailPlugin(a.view.state)).not.toBe(tailPlugin(b.view.state));
+  for (const [editor, raw] of [[a, rawA], [b, rawB]] as const) {
+    expect(editor.port.snapshot()).toMatchObject({kind: "mapped", value: {text: raw}});
+    expect(editor.port.bindSource(raw, editor.port.generation()).kind).toBe("mapped");
+  }
+  await a.editor.destroy();
+  expect(a.port.snapshot()).toMatchObject({kind: "unavailable", reason: "disposed"});
+  expect(b.port.bindSource(rawB, b.port.generation()).kind).toBe("mapped");
 });

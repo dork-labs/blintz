@@ -298,9 +298,17 @@ export function sourceEditorAssembly(
     (ctx) => {
       const runner = trailingPlugin(ctx);
       return async () => {
+        const previous = new Set(ctx.get(prosePluginsCtx));
         const cleanup = await runner();
-        const plugin = trailingPlugin.plugin();
-        if (value.trailing && ctx.get(prosePluginsCtx).includes(plugin)) value.trailing.plugin = plugin;
+        // $prose.plugin() is module-global. Resolve the original runner's
+        // registration in this editor's context instead of borrowing that slot.
+        const additions = ctx.get(prosePluginsCtx).filter((plugin) => {
+          if (previous.has(plugin)) return false;
+          const key = plugin.spec.key;
+          const name = key && Object.getOwnPropertyDescriptor(key, "key")?.value;
+          return typeof name === "string" && /^MILKDOWN_TRAILING\$\d*$/.test(name);
+        });
+        if (value.trailing && additions.length === 1) value.trailing.plugin = additions[0];
         return () => { if (typeof cleanup === "function") return cleanup(); };
       };
     },
