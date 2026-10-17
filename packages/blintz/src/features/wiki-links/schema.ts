@@ -1,5 +1,5 @@
 import { InputRule } from "@milkdown/kit/prose/inputrules";
-import { Plugin, PluginKey } from "@milkdown/kit/prose/state";
+import { Plugin, PluginKey, type Transaction } from "@milkdown/kit/prose/state";
 import { $inputRule, $nodeSchema, $prose, $remark } from "@milkdown/kit/utils";
 
 import {
@@ -175,22 +175,51 @@ export const wikiLinkSourceSync = $prose(
     new Plugin({
       key: new PluginKey("blintz-wiki-link-source"),
       appendTransaction(transactions, _old, state) {
-        if (!transactions.some((tr) => tr.docChanged)) return null;
+        const ranges = changedRanges(transactions);
+        if (ranges.length === 0) return null;
+        const { doc } = state;
         let tr = null as ReturnType<typeof state.tr.setNodeAttribute> | null;
-        state.doc.descendants((node, pos, parent) => {
-          if (node.type.name !== wikiLinkId) return;
-          const inCell = !!parent && TABLE_CELLS.has(state.doc.resolve(pos).node(-1)?.type.name ?? "");
-          const link = wikiLinkFromAttrs(node.attrs);
-          const written = writtenWikiLink(
-            { ...link, value: typeof node.attrs.source === "string" ? node.attrs.source : undefined },
-            inCell,
-          );
-          if (node.attrs.source !== written) {
-            tr ??= state.tr;
-            tr.setNodeAttribute(pos, "source", written);
-          }
-        });
+        const seen = new Set<number>();
+        for (const { from, to } of ranges) {
+          // Cells are visited before their contents, so a running end
+          // position tells whether a link sits inside one: no resolving.
+          let cellEnd = -1;
+          doc.nodesBetween(Math.max(0, from), Math.min(doc.content.size, to), (node, pos) => {
+            if (TABLE_CELLS.has(node.type.name)) cellEnd = pos + node.nodeSize;
+            if (node.type.name !== wikiLinkId || seen.has(pos)) return;
+            seen.add(pos);
+            const link = wikiLinkFromAttrs(node.attrs);
+            const source = typeof node.attrs.source === "string" ? node.attrs.source : undefined;
+            const written = writtenWikiLink({ ...link, value: source }, pos < cellEnd);
+            if (node.attrs.source !== written) {
+              tr ??= state.tr;
+              tr.setNodeAttribute(pos, "source", written);
+            }
+          });
+        }
         return tr?.setMeta("addToHistory", false) ?? null;
       },
     }),
 );
+
+/** The ranges of the final document that these transactions touched. */
+function changedRanges(transactions: readonly Transaction[]): Array<{ from: number; to: number }> {
+  const ranges: Array<{ from: number; to: number }> = [];
+  for (const tr of transactions) {
+    if (!tr.docChanged) continue;
+    for (const range of ranges) {
+      range.from = tr.mapping.map(range.from, -1);
+      range.to = tr.mapping.map(range.to, 1);
+    }
+    tr.steps.forEach((step, index) => {
+      const rest = tr.mapping.slice(index + 1);
+      const add = (from: number, to: number) =>
+        ranges.push({ from: rest.map(from, -1), to: rest.map(to, 1) });
+      tr.mapping.maps[index]!.forEach((_oldStart, _oldEnd, newStart, newEnd) => add(newStart, newEnd));
+      // Attribute steps change no positions, so their map is empty.
+      const at = (step as { pos?: unknown }).pos;
+      if (typeof at === "number") add(at, at + 1);
+    });
+  }
+  return ranges;
+}
