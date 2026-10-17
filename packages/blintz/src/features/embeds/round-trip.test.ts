@@ -68,6 +68,7 @@ describe("embed directives round-trip", () => {
     "::x y\n",
     '::x{a="line1\nline2"}\n',
     "::chart-\n",
+    "| a   |\n| --- |\n| ::x |\n",
     '::x{:a="x"}\n',
   ])("leaves the colon-led prose %j byte-identical", async (md) => {
     expect(await roundTrip(md)).toBe(md);

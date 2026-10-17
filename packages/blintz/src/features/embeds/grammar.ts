@@ -31,14 +31,21 @@ export function remarkBlockDirectives(this: Processor): void {
   // without this, `{id="42"}` would come back as `{#42}`. The `#id` / `.class`
   // shorthand is still read, and written back in the long form.
   const toMarkdown = directiveToMarkdown({ preferShortcut: false });
+  // Wrap whichever paragraph handler an earlier plugin registered, if any.
+  const previous: Handle =
+    [...(data.toMarkdownExtensions ?? [])]
+      .reverse()
+      .flatMap((extension) => ("handlers" in extension ? [extension.handlers?.paragraph] : []))
+      .find((handle): handle is Handle => typeof handle === "function") ??
+    (defaultHandlers.paragraph as Handle);
   (data.micromarkExtensions ??= []).push({ flow });
   (data.fromMarkdownExtensions ??= []).push(directiveFromMarkdown());
   (data.toMarkdownExtensions ??= []).push({
     ...toMarkdown,
-    handlers: { ...toMarkdown.handlers, paragraph },
+    handlers: { ...toMarkdown.handlers, paragraph: guardParagraph(previous) },
     // Keep the label line-break guards. Drop the phrasing rule (it exists only
     // for text directives) and the at-break rule, which escapes ANY line
-    // starting with `::`; the paragraph handler below escapes precisely.
+    // starting with `::`; the guarded paragraph handler escapes precisely.
     unsafe: (toMarkdown.unsafe ?? []).filter(
       (rule) => !rule.inConstruct?.includes("phrasing") && !rule.atBreak,
     ),
@@ -104,24 +111,41 @@ function opensDirective(line: string): boolean {
   return node?.type === "leafDirective" || node?.type === "containerDirective";
 }
 
+// Parents whose paragraphs start a line of flow content. A paragraph
+// anywhere else (a table cell) is mid-line, so it can never open a directive.
+const FLOW_PARENTS = new Set([
+  "root",
+  "blockquote",
+  "listItem",
+  "containerDirective",
+  "footnoteDefinition",
+]);
+
+// Cheap pre-check before re-parsing: some line starts with `::` then a
+// non-space, non-colon character (every directive opening does).
+const MAY_OPEN_DIRECTIVE = /^[ \t]*::+[^\s:]/m;
+
 /**
- * The default paragraph handler plus one guard. When the written paragraph
- * would re-parse as something other than one paragraph because a line opens
- * a directive (`::note` typed as prose, or `::x{a="*b*"}` whose braces span
+ * Wraps the paragraph handler with one guard. When a written paragraph would
+ * re-parse as something other than one paragraph because a line opens a
+ * directive (`::note` typed as prose, or `::x{a="*b*"}` whose braces span
  * marks), that line's first colon is escaped. A paragraph that already
  * re-parses as a single paragraph is returned untouched, so colon-led prose
  * stays byte-identical.
  */
-const paragraph: Handle = (node, parent, state, info) => {
-  const value = defaultHandlers.paragraph(node as Paragraph, parent, state, info);
-  if (!value.includes("::")) return value;
-  const reparsed = parseFlow(value);
-  if (reparsed.length === 1 && reparsed[0]?.type === "paragraph") return value;
-  return value
-    .split("\n")
-    .map((line) => (opensDirective(line) ? line.replace(":", "\\:") : line))
-    .join("\n");
-};
+function guardParagraph(inner: Handle): Handle {
+  return (node, parent, state, info) => {
+    const value = inner(node as Paragraph, parent, state, info) as string;
+    if (!FLOW_PARENTS.has(parent?.type ?? "root")) return value;
+    if (!MAY_OPEN_DIRECTIVE.test(value)) return value;
+    const reparsed = parseFlow(value);
+    if (reparsed.length === 1 && reparsed[0]?.type === "paragraph") return value;
+    return value
+      .split("\n")
+      .map((line) => (opensDirective(line) ? line.replace(":", "\\:") : line))
+      .join("\n");
+  };
+}
 
 /** Directive attributes as written: `{src="a" .wide #main}` → `{ src: "a", class: "wide", id: "main" }`. */
 export type EmbedAttributes = Record<string, string>;

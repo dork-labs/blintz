@@ -71,6 +71,17 @@ it("Backspace elsewhere in a container still edits normally", async () => {
   expect(h.view.state.selection).not.toBeInstanceOf(NodeSelection);
 });
 
+it.each([
+  ["a first list item", ":::box\n* item\n:::\n", "item"],
+  ["a heading", ":::box\n# Head\n:::\n", "Head"],
+  ["a quote", ":::box\n> quoted\n:::\n", "quoted"],
+])("Backspace at the start of %s inside a container keeps its own behavior", async (_, md, text) => {
+  const h = await fixture(md);
+  caretAt(h.view, text);
+  press(h.view, "Backspace");
+  expect(h.view.state.selection).not.toBeInstanceOf(NodeSelection);
+});
+
 it("Delete just before a container selects it", async () => {
   const h = await fixture('before\n\n:::callout{tone="warn"}\nonly\n:::\n');
   caretAt(h.view, "before", true);

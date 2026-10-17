@@ -18,15 +18,16 @@ export const embedContainerKeymap = $prose(() =>
 
 const selectContainerBefore: Command = (state, dispatch) => {
   const { $from, empty } = state.selection;
-  if (!empty || !$from.parent.isTextblock || $from.parentOffset !== 0) return false;
-  for (let depth = $from.depth - 1; depth > 0; depth--) {
-    if ($from.index(depth) !== 0) return false;
-    if ($from.node(depth).type.name === embedContainerId) {
-      dispatch?.(state.tr.setSelection(NodeSelection.create(state.doc, $from.before(depth))));
-      return true;
-    }
+  if (!empty || $from.parent.type.name !== "paragraph" || $from.parentOffset !== 0) {
+    return false;
   }
-  return false;
+  // Only the container's own first paragraph: a first list item, heading or
+  // quote inside it keeps its normal Backspace (lift, unwrap, downgrade) first.
+  const depth = $from.depth - 1;
+  if (depth < 1 || $from.index(depth) !== 0) return false;
+  if ($from.node(depth).type.name !== embedContainerId) return false;
+  dispatch?.(state.tr.setSelection(NodeSelection.create(state.doc, $from.before(depth))));
+  return true;
 };
 
 const selectContainerAfter: Command = (state, dispatch) => {
