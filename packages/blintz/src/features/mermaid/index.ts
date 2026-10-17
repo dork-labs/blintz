@@ -85,12 +85,13 @@ export function renderMermaid(
     if (signal?.aborted) throw abortError();
     const mermaid = await load(loader);
     if (signal?.aborted) throw abortError();
-    // The host's settings, minus `themeVariables`: mermaid stores the colours
-    // computed for the current theme there, and carrying them over would
-    // paint a dark diagram in light colours (and pin them on restore).
-    const site = hostSettings(mermaid);
+    // Draw with the host's settings minus `themeVariables`: mermaid stores the
+    // colours computed for the current theme there, and carrying them over
+    // would paint a dark diagram in light colours. The restore afterwards
+    // puts the host's full settings back, its own colours included.
+    const site = mermaid.mermaidAPI?.getSiteConfig?.() as Record<string, unknown> | undefined;
     mermaid.initialize({
-      ...(site ?? {}),
+      ...withoutThemeVariables(site),
       startOnLoad: false,
       securityLevel: "strict",
       theme: theme === "dark" ? "dark" : "default",
@@ -110,9 +111,8 @@ export function renderMermaid(
   return run;
 }
 
-function hostSettings(mermaid: MermaidModule): Record<string, unknown> | undefined {
-  const site = mermaid.mermaidAPI?.getSiteConfig?.() as Record<string, unknown> | undefined;
-  if (!site) return undefined;
+function withoutThemeVariables(site: Record<string, unknown> | undefined): Record<string, unknown> {
+  if (!site) return {};
   const { themeVariables: _computed, ...rest } = site;
   return rest;
 }

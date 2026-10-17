@@ -75,7 +75,9 @@ export interface MarkdownEditorProps extends SourceCallbacks {
    * Draw ` ```mermaid ` code blocks as diagrams: pass a loader such as
    * `() => import("mermaid")` (mermaid 10 or later). It is called the first
    * time a diagram needs drawing, so documents without diagrams never load
-   * mermaid. Without it, mermaid blocks stay ordinary code blocks.
+   * mermaid. Without it, mermaid blocks stay ordinary code blocks. It may be
+   * an inline function; once mermaid has loaded, the editor keeps that copy
+   * (a different loader passed later is not called).
    */
   mermaid?: MermaidLoader;
 }

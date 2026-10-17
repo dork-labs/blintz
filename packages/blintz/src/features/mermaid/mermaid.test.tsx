@@ -77,13 +77,18 @@ describe("renderMermaid", () => {
     await expect(renderMermaid(loader, "graph A", "light")).resolves.toContain("<svg");
   });
 
-  it("keeps the host's own mermaid settings, minus computed theme colours", async () => {
-    const host = { theme: "forest", securityLevel: "loose", fontFamily: "HostFont" };
+  it("draws without the host's colours, then restores them in full", async () => {
+    const host = {
+      theme: "base",
+      securityLevel: "loose",
+      fontFamily: "HostFont",
+      themeVariables: { primaryColor: "#ff0000" },
+    };
     const seen: Array<Record<string, unknown>> = [];
     const module: MermaidModule = {
       initialize: (config) => void seen.push(config),
       render: async () => ({ svg: "<svg></svg>" }),
-      mermaidAPI: { getSiteConfig: () => ({ ...host, themeVariables: { primaryColor: "#ECECFF" } }) },
+      mermaidAPI: { getSiteConfig: () => structuredClone(host) },
     };
     await renderMermaid(async () => module, "graph A", "dark");
     expect(seen[0]).toMatchObject({ fontFamily: "HostFont", securityLevel: "strict", theme: "dark" });
