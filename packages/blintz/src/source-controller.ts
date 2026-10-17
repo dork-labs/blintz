@@ -9,7 +9,7 @@ import {
   type SourceTask,
   type SourceTaskToggleRequest,
 } from "./source-location";
-import type { ParsedSource } from "./source-parser";
+import { mapSourceRange, type ParsedSource } from "./source-parser";
 export interface SourceCallbacks {
   onSourceReady?: (port: MarkdownSourcePort) => void;
   onSourceSelection?: (result: SourceLocationResult<SourceSelection>) => void;
@@ -233,51 +233,8 @@ export class SourceController {
     empty: boolean,
     direction: SourceSelection["direction"],
   ): SourceLocationResult<SourceSelection> {
-    const selection = { from, to, empty };
-    const parsed = this.parsed!;
-    const spans = parsed.texts.filter(
-      (span) => span.to >= selection.from && span.from <= selection.to,
-    );
-    const ranges = spans
-      .filter((span) =>
-        selection.empty
-          ? selection.from >= span.from && selection.from <= span.to
-          : selection.to > span.from && selection.from < span.to,
-      )
-      .map((span) => {
-        const from = Math.max(selection.from, span.from),
-          to = Math.min(selection.to, span.to);
-        return parsed.coordinates.range(
-          span.rawFrom + from - span.from,
-          span.rawFrom + to - span.from,
-        );
-      });
-    // Every selected text unit must have direct parser-origin evidence.
-    let selectedText = 0,
-      unsupportedLeaf = false;
-    this.view!.state.doc.nodesBetween(
-      selection.from,
-      selection.to,
-      (node, pos) => {
-        if (node.isLeaf && !node.isText) unsupportedLeaf = true;
-        if (node.isText)
-          selectedText += Math.max(
-            0,
-            Math.min(selection.to, pos + node.nodeSize) -
-              Math.max(selection.from, pos),
-          );
-      },
-    );
-    if (
-      unsupportedLeaf ||
-      !ranges.length ||
-      ranges.length > 100 ||
-      ranges.reduce((n, range) => n + range.end - range.start, 0) !==
-        selectedText ||
-      (selection.empty &&
-        new Set(ranges.map((range) => range.start)).size !== 1)
-    )
-      return { kind: "unavailable", reason: "unmapped" };
+    const ranges = mapSourceRange(this.parsed!, this.view!.state.doc, from, to, empty);
+    if (!ranges) return { kind: "unavailable", reason: "unmapped" };
     return {
       kind: "mapped",
       generation: this.generation,

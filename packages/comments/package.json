@@ -29,6 +29,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./core": {
+      "types": "./dist/core.d.ts",
+      "import": "./dist/core.js"
+    },
     "./styles.css": "./dist/comments.css"
   },
   "main": "./dist/index.js",
@@ -51,6 +55,14 @@
     "blintz": ">=0.7.2",
     "react": ">=18",
     "react-dom": ">=18"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@types/react": "^19.2.0",

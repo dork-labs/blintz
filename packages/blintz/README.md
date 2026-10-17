@@ -189,6 +189,8 @@ A few rules for `base`:
 
 Seed documents on the server: an editor shows what the shared fragment holds, so an empty fragment means an empty page.
 
+`model.source(markdown)` gives `document(markdown)` together with where its text came from: `toSource(from, to)` maps a document range to raw ranges exactly as the editor's `port.range` does, and `fromSource(start, end)` maps a raw range back to the text inside it. `@blintz/comments/core` uses it to place comment threads on the server.
+
 In Node, Milkdown's internal timers need the global `addEventListener` and `dispatchEvent`. `createMarkdownModel` adds those two functions (and `removeEventListener`), backed by a private `EventTarget`, only when they are missing. Nothing else is added. Those timers also leave a few seconds of pending `setTimeout`s, so a short-lived script or worker exits about 3 seconds after its last `createMarkdownModel`.
 
 ## Why Blintz
