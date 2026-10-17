@@ -2,7 +2,9 @@ import type { Node } from "@milkdown/kit/prose/model";
 import { Plugin, PluginKey, type EditorState, type Transaction } from "@milkdown/kit/prose/state";
 import { Decoration, DecorationSet, type EditorView } from "@milkdown/kit/prose/view";
 import { DOCUMENT_RESET_META, isCollaboratorChange } from "blintz";
-import { StepMap, type Mappable } from "@milkdown/kit/prose/transform";
+import type { Mappable } from "@milkdown/kit/prose/transform";
+
+import { diffMap } from "./diff-map";
 
 import {
   anchorFromRange,
@@ -154,23 +156,12 @@ function isHostReset(tr: Transaction): boolean {
 /**
  * How positions move through a transaction. A collaborator's change arrives
  * as a whole-document replacement, so its own mapping would collapse every
- * thread; map through the span that actually differs instead, as if it were
- * an ordinary edit (a remote deletion orphans, a remote undo restores).
+ * thread; map through what actually differs instead, word by word, as if it
+ * were ordinary edits (a remote deletion orphans, a remote undo restores, and
+ * edits on both sides of a comment leave it alone).
  */
 function mappingFor(tr: Transaction): Mappable {
-  if (!isCollaboratorChange(tr)) return tr.mapping;
-  const before = tr.before.content;
-  const after = tr.doc.content;
-  const start = before.findDiffStart(after);
-  if (start === null) return StepMap.empty;
-  let { a: endBefore, b: endAfter } = before.findDiffEnd(after)!;
-  // On repeated content the two scans can cross; widen to stay consistent.
-  const overlap = start - Math.min(endBefore, endAfter);
-  if (overlap > 0) {
-    endBefore += overlap;
-    endAfter += overlap;
-  }
-  return new StepMap([start, endBefore - start, endAfter - start]);
+  return isCollaboratorChange(tr) ? diffMap(tr.before, tr.doc) : tr.mapping;
 }
 
 /**

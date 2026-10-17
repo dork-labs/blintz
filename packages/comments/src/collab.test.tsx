@@ -129,3 +129,54 @@ it("orphans a thread a collaborator deleted, never moving it, and restores it on
   const range = api!.rangeOf("t")!;
   expect(view().state.doc.textBetween(range.from - 17, range.from)).toBe("The launch is on ");
 });
+
+it.each([
+  [
+    "in other paragraphs",
+    "Top line.\n\nThe launch is on Friday.\n\nBottom line.\n",
+    "A new top line, rewritten.\n\nThe launch is on Friday.\n\nA new bottom line.\n",
+  ],
+  [
+    "in the same paragraph",
+    "The launch is on Friday, at noon.\n",
+    "Big news: the launch is on Friday, at 3pm.\n",
+  ],
+])("keeps a thread through one agent write that edits both sides of it %s", async (_, seed, rewrite) => {
+  const model = await createMarkdownModel();
+  const server = new Y.Doc();
+  applyMarkdownToYDoc(model, server, seed);
+  const mine = new Y.Doc();
+  Y.applyUpdate(mine, Y.encodeStateAsUpdate(server));
+  server.on("update", (update: Uint8Array, origin: unknown) => origin !== "net" && Y.applyUpdate(mine, update, "net"));
+
+  let editor: Editor | null = null;
+  let api: BlintzComments | null = null;
+  const capture = Object.assign(({ editor: e }: { editor: Editor }) => void (editor = e), { preservesSourceMapping: true });
+  const collab = collaboration({ fragment: mine.getXmlFragment("prosemirror") });
+  function Harness({ threads }: { threads: CommentThreadRef[] }) {
+    api = useBlintzComments({ threads });
+    return <MarkdownEditor value="" plugins={[collab, api.plugin, capture]} />;
+  }
+  host = document.createElement("div");
+  document.body.append(host);
+  root = createRoot(host);
+  await act(async () => root!.render(<Harness threads={[]} />));
+  await waitFor(() => !!editor && host!.textContent!.includes("Friday"));
+  const view = (): EditorView => (editor as Editor).action((ctx) => ctx.get(editorViewCtx));
+  const text = docText(view().state.doc);
+  const at = text.text.indexOf("Friday");
+  view().dispatch(
+    view().state.tr.setSelection(
+      TextSelection.create(view().state.doc, positionAt(text, at, "start")!, positionAt(text, at + 6, "end")!),
+    ),
+  );
+  const anchor = api!.anchorSelection()!;
+  await act(async () => root!.render(<Harness threads={[{ id: "t", anchor }]} />));
+  await waitFor(() => host!.querySelector('[data-comment-id="t"]')?.textContent === "Friday");
+
+  // One write, one Yjs transaction, changes on both sides of the words.
+  await act(async () => applyMarkdownToYDoc(model, server, rewrite));
+  await waitFor(() => host!.textContent!.includes(rewrite.includes("3pm") ? "3pm" : "rewritten"));
+  expect(host.querySelector('[data-comment-id="t"]')?.textContent).toBe("Friday");
+  expect(api!.rangeOf("t")).not.toBeNull();
+});
