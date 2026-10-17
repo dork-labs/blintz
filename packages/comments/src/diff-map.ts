@@ -114,10 +114,13 @@ function posOf(list: Token[], index: number, end: number): number {
  * opaque step (a collaborator's update), built from a word-level diff so
  * text that did not change keeps its place even when edits surround it.
  * Only the top-level blocks between the first and last difference are compared.
+ * `exact` is false when the change was too big to diff and the whole differing
+ * span is mapped as one replacement, so ranges inside it collapse even if
+ * their words survived.
  */
-export function diffMap(before: Node, after: Node): StepMap {
+export function diffMap(before: Node, after: Node): { map: StepMap; exact: boolean } {
   const start = before.content.findDiffStart(after.content);
-  if (start === null) return StepMap.empty;
+  if (start === null) return { map: StepMap.empty, exact: true };
   let { a: endBefore, b: endAfter } = before.content.findDiffEnd(after.content)!;
   // On repeated content the two scans can cross; widen to stay consistent.
   const overlap = start - Math.min(endBefore, endAfter);
@@ -135,11 +138,11 @@ export function diffMap(before: Node, after: Node): StepMap {
   const a = tokens(before, first, blockStart, endBefore);
   const b = tokens(after, first, blockStart, endAfter);
   const found = hunks(a.list, b.list);
-  if (!found) return new StepMap([start, endBefore - start, endAfter - start]);
+  if (!found) return { map: new StepMap([start, endBefore - start, endAfter - start]), exact: false };
   const ranges: number[] = [];
   for (const [aStart, aEnd, bStart, bEnd] of found) {
     const from = posOf(a.list, aStart, a.to);
     ranges.push(from, posOf(a.list, aEnd, a.to) - from, posOf(b.list, bEnd, b.to) - posOf(b.list, bStart, b.to));
   }
-  return new StepMap(ranges);
+  return { map: new StepMap(ranges), exact: true };
 }

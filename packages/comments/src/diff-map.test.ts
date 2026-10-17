@@ -4,7 +4,7 @@ import { Schema } from "@milkdown/kit/prose/model";
 import { diffMap } from "./diff-map";
 
 /** StepMap keeps its ranges internal; the tests read them to check the shape. */
-const ranges = (map: ReturnType<typeof diffMap>) => (map as unknown as { ranges: number[] }).ranges;
+const ranges = ({ map }: ReturnType<typeof diffMap>) => (map as unknown as { ranges: number[] }).ranges;
 
 const schema = new Schema({
   nodes: {
@@ -28,7 +28,7 @@ function follow(before: ReturnType<typeof doc>, after: ReturnType<typeof doc>, w
   before.descendants((node, pos) => {
     if (from < 0 && node.isText && node.text!.includes(word)) from = pos + node.text!.indexOf(word);
   });
-  const map = diffMap(before, after);
+  const { map } = diffMap(before, after);
   const a = map.map(from, 1);
   const b = map.map(from + word.length, -1);
   return a < b ? after.textBetween(a, b) : null;
@@ -59,7 +59,7 @@ describe("diffMap", () => {
   it("produces a map every position goes through in order", () => {
     const before = doc("one two three", "four five", "six");
     const after = doc("zero one three", "five four", "six seven");
-    const map = diffMap(before, after);
+    const { map } = diffMap(before, after);
     let last = -1;
     for (let pos = 0; pos <= before.content.size; pos++) {
       const mapped = map.map(pos, 1);
@@ -72,8 +72,9 @@ describe("diffMap", () => {
 
   it("falls back to one span for rewrites too big to diff", () => {
     const words = (seed: string) => Array.from({ length: 1500 }, (_, i) => `${seed}${i}`).join(" ");
-    const map = diffMap(doc("keep", words("a")), doc("keep", words("b")));
-    expect(ranges(map).length).toBe(3);
-    expect(map.map(1, 1)).toBe(1);
+    const result = diffMap(doc("keep", words("a")), doc("keep", words("b")));
+    expect(result.exact).toBe(false);
+    expect(ranges(result).length).toBe(3);
+    expect(result.map.map(1, 1)).toBe(1);
   });
 });

@@ -180,3 +180,49 @@ it.each([
   expect(host.querySelector('[data-comment-id="t"]')?.textContent).toBe("Friday");
   expect(api!.rangeOf("t")).not.toBeNull();
 });
+
+it("keeps a thread through an agent write too big to diff word by word", async () => {
+  const lines = (word: string) => Array.from({ length: 700 }, (_, i) => `Line ${i} ${word}.`);
+  const middle = "We agreed that the launch is on Friday, after the final review is done.";
+  const compose = (word: string) => {
+    const all = lines(word);
+    all.splice(350, 0, middle);
+    return `${all.join("\n\n")}\n`;
+  };
+  const model = await createMarkdownModel();
+  const server = new Y.Doc();
+  applyMarkdownToYDoc(model, server, compose("alpha"));
+  const mine = new Y.Doc();
+  Y.applyUpdate(mine, Y.encodeStateAsUpdate(server));
+  server.on("update", (update: Uint8Array, origin: unknown) => origin !== "net" && Y.applyUpdate(mine, update, "net"));
+
+  let editor: Editor | null = null;
+  let api: BlintzComments | null = null;
+  const capture = Object.assign(({ editor: e }: { editor: Editor }) => void (editor = e), { preservesSourceMapping: true });
+  const collab = collaboration({ fragment: mine.getXmlFragment("prosemirror") });
+  function Harness({ threads }: { threads: CommentThreadRef[] }) {
+    api = useBlintzComments({ threads });
+    return <MarkdownEditor value="" plugins={[collab, api.plugin, capture]} />;
+  }
+  host = document.createElement("div");
+  document.body.append(host);
+  root = createRoot(host);
+  await act(async () => root!.render(<Harness threads={[]} />));
+  await waitFor(() => !!editor && host!.textContent!.includes("Friday"));
+  const view = (): EditorView => (editor as Editor).action((ctx) => ctx.get(editorViewCtx));
+  const text = docText(view().state.doc);
+  const at = text.text.indexOf("Friday");
+  view().dispatch(
+    view().state.tr.setSelection(
+      TextSelection.create(view().state.doc, positionAt(text, at, "start")!, positionAt(text, at + 6, "end")!),
+    ),
+  );
+  const anchor = api!.anchorSelection()!;
+  await act(async () => root!.render(<Harness threads={[{ id: "t", anchor }]} />));
+  await waitFor(() => host!.querySelector('[data-comment-id="t"]')?.textContent === "Friday");
+
+  // 1400 word changes, on both sides of the comment, in one write.
+  await act(async () => applyMarkdownToYDoc(model, server, compose("beta")));
+  await waitFor(() => host!.textContent!.includes("Line 0 beta"), 10000);
+  expect(host.querySelector('[data-comment-id="t"]')?.textContent).toBe("Friday");
+}, 30000);

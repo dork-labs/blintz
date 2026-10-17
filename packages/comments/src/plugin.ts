@@ -160,8 +160,10 @@ function isHostReset(tr: Transaction): boolean {
  * were ordinary edits (a remote deletion orphans, a remote undo restores, and
  * edits on both sides of a comment leave it alone).
  */
-function mappingFor(tr: Transaction): Mappable {
-  return isCollaboratorChange(tr) ? diffMap(tr.before, tr.doc) : tr.mapping;
+function mappingFor(tr: Transaction): { mapping: Mappable; exact: boolean } {
+  return isCollaboratorChange(tr)
+    ? (({ map, exact }) => ({ mapping: map, exact }))(diffMap(tr.before, tr.doc))
+    : { mapping: tr.mapping, exact: true };
 }
 
 /**
@@ -207,7 +209,7 @@ function mapThrough(previous: CommentsState, tr: Transaction, display: CommentsD
   const lastAnchors = new Map(previous.lastAnchors);
   const deletedAnchors = new Map(previous.deletedAnchors);
   // Keep each deletion point on the spot where undo would put the words back.
-  const mapping = mappingFor(tr);
+  const { mapping, exact } = mappingFor(tr);
   const deletedAt = new Map([...previous.deletedAt].map(([id, pos]) => [id, mapping.map(pos, -1)]));
   const reset = isHostReset(tr);
   let model: ReturnType<typeof docText> | undefined;
@@ -227,6 +229,18 @@ function mapThrough(previous: CommentsState, tr: Transaction, display: CommentsD
       if (found) ranges.set(id, found);
       else orphaned.set(id, "missing");
       continue;
+    }
+    if (!exact) {
+      // A collaborator's change too big to diff collapsed the range whether
+      // or not its words survived: find them again by their current context,
+      // with at least half of it, so a rewrite never grabs other words.
+      const fresh = anchorFromRange(tr.before, range.from, range.to);
+      model ??= docText(tr.doc);
+      const found = fresh ? locateDetailed(tr.doc, fresh, model) : null;
+      if (found && enoughContext(found, "missing")) {
+        ranges.set(id, found);
+        continue;
+      }
     }
     // The user deleted the words. Remember them exactly as they were, with
     // their context right now, so undo can bring the thread back, and never
