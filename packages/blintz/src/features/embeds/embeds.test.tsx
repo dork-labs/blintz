@@ -7,7 +7,7 @@
  * `updateAttributes` back to markdown.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { act, useEffect } from "react";
+import { act, useEffect, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
 import { MarkdownEditor } from "../../MarkdownEditor";
@@ -218,6 +218,52 @@ describe("embed views keep the document whole", () => {
     expect(mounts).toBe(1);
   });
 
+  it("moves content into a host that starts rendering children later", async () => {
+    let open: (() => void) | undefined;
+    const Collapsible = ({ children }: EmbedProps) => {
+      const [shown, setShown] = useState(false);
+      open = () => setShown(true);
+      return <section data-testid="collapsible">{shown ? children : null}</section>;
+    };
+    const el = await mount(":::box\nsecret body text\n:::\n", {
+      box: { component: Collapsible, kind: "container" },
+    });
+    await waitFor(() => el.querySelector(".blintz-embed-fallback .blintz-embed-content") !== null);
+    await act(async () => open!());
+    await waitFor(
+      () => el.querySelector('[data-testid="collapsible"] .blintz-embed-content') !== null,
+    );
+    expect(el.querySelector(".blintz-embed-fallback")!.childElementCount).toBe(0);
+    expect(el.querySelectorAll(".blintz-embed-content")).toHaveLength(1);
+    expect(el.querySelector('[data-testid="collapsible"]')!.textContent).toBe("secret body text");
+  });
+
+  it("runs an async validator once per change and reports its rejection", async () => {
+    let calls = 0;
+    const rejections: unknown[] = [];
+    const onRejection = (reason: unknown) => rejections.push(reason);
+    process.on("unhandledRejection", onRejection);
+    try {
+      const el = await mount('::chart{src="a"}\n', {
+        chart: {
+          component: Chart,
+          validate: async () => {
+            calls++;
+            throw new Error("schema exploded");
+          },
+        },
+      });
+      await waitFor(() => el.textContent!.includes("schema exploded"));
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      });
+      expect(calls).toBe(1);
+      expect(rejections).toEqual([]);
+    } finally {
+      process.off("unhandledRejection", onRejection);
+    }
+  });
+
   it("refuses attribute names the grammar cannot write back", async () => {
     const onChange = vi.fn();
     let update: EmbedProps["updateAttributes"];
@@ -227,7 +273,12 @@ describe("embed views keep the document whole", () => {
     };
     await mount('::chart{src="q3"}\n\nAfter.\n', { chart: { component: Capture } }, { onChange });
     await waitFor(() => update !== undefined);
-    const bads: Record<string, string>[] = [{ "a}": "1" }, { "": "1" }, { "a b": "1" }];
+    const bads: Record<string, string>[] = [
+      { "a}": "1" },
+      { "": "1" },
+      { "a b": "1" },
+      { ":a": "1" },
+    ];
     for (const bad of bads) {
       expect(() => update!(bad)).toThrow(/invalid embed attribute name/);
     }
@@ -245,10 +296,12 @@ describe("slash menu embeds", () => {
     const { groups } = getGroups("", {
       chart: { component: Noop, title: "Chart" },
       "a b": { component: Noop, title: "Spaced" },
+      "chart-": { component: Noop, title: "Trailing dash" },
+      日本: { component: Noop, title: "Unicode" },
       "": { component: Noop, title: "Empty" },
       hidden: { component: Noop, title: "Hidden", hideFromMenu: true },
     });
-    expect(embedGroupOf(groups)?.items.map(({ label }) => label)).toEqual(["Chart"]);
+    expect(embedGroupOf(groups)?.items.map(({ label }) => label)).toEqual(["Chart", "Unicode"]);
   });
 
   it("adds no Embeds group without a registry", () => {

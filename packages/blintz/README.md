@@ -68,7 +68,8 @@ const embeds: EmbedRegistry = {
 <MarkdownEditor value={md} onChange={setMd} embeds={embeds} />;
 ```
 
-- `::name{…}` is a leaf embed. `:::name … :::` is a container whose markdown content arrives as `children`. Put `children` where the editable content should go.
+- `::name{…}` is a leaf embed. `:::name … :::` is a container whose markdown content arrives as `children`. Put `children` where the editable content should go. If a component doesn't render `children` (or renders them later), the content shows below it, so it is never hidden.
+- Inside a container, Enter on an empty last line leaves it, as in a quote. Backspace at its very start selects the whole embed instead of unwrapping it; press it again to delete the embed.
 - A component gets `name`, `attributes` (all strings), `label` (the `[…]` text), `editable`, and, while the document is editable, `updateAttributes(next)`, which writes new attributes back to the markdown as one undoable step. Render from these props alone, so the same component can render a published page on the server.
 - `validate` takes a [Standard Schema](https://standardschema.dev) (Zod, Valibot, ArkType and others) or a plain function returning `{ issues }`. Invalid attributes show the problems instead of the component.
 - A name with nothing registered shows a placeholder and stays in the markdown unchanged. A component that throws shows an error in its place; the rest of the editor keeps working.

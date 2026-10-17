@@ -1,6 +1,5 @@
 import {
   Component,
-  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -15,8 +14,7 @@ import { toString } from "mdast-util-to-string";
 import { useEditorEditable } from "../../shared/editor-ctx";
 import { cx } from "../../shared/cx";
 import {
-  ATTRIBUTE_KEY,
-  validateEmbedAttributes,
+  isAttributeKey,
   type EmbedAttributes,
   type EmbedIssue,
   type EmbedValidationResult,
@@ -51,41 +49,47 @@ function EmbedFrame({ container }: { container: boolean }) {
     [label],
   );
 
-  // A container's editable content must stay in the document even when the
-  // host component never renders `children` (or throws): after each commit,
-  // if the content element did not attach, render it under the frame instead.
-  const contentEl = useRef<HTMLElement | null>(null);
-  const attachContent = useCallback(
-    (element: HTMLElement | null) => {
-      contentEl.current = element;
-      contentRef(element);
-    },
-    [contentRef],
-  );
-  const [orphaned, setOrphaned] = useState<unknown>(null);
-  const placement = `${name}\u0000${definition ? "known" : "unknown"}`;
-  const contentOrphaned = container && orphaned === placement;
-
-  const ready = !!definition && validation !== "pending" && validation.length === 0;
-  const hostOwnsContent = container && ready && !contentOrphaned;
-  const content = container ? (
-    <div className="blintz-embed-content" ref={attachContent} />
-  ) : undefined;
-
-  // Checked against the frame, not the document: on first commit the node
-  // view is not yet inserted into the editor, so `isConnected` is false.
+  // A container's editable content lives in one element Blintz owns (`home`),
+  // never one React owns. The host places it by rendering `children`, an
+  // <EmbedContent> slot that adopts `home` while mounted. Whenever no slot is
+  // mounted (a host that ignores `children`, renders them later, or throws;
+  // an unknown, pending or invalid embed), `home` sits in the fallback below
+  // the frame, so the content is always in the document and always editable.
+  const [home] = useState(() => {
+    const element = document.createElement("div");
+    element.className = "blintz-embed-content";
+    return element;
+  });
+  const fallback = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (container) contentRef(home);
+  }, [container, contentRef, home]);
+  const Slot = useMemo(() => {
+    function EmbedContent() {
+      const slot = useRef<HTMLDivElement>(null);
+      useLayoutEffect(() => {
+        const element = slot.current!;
+        element.appendChild(home);
+        return () => {
+          if (home.parentNode === element) fallback.current?.appendChild(home);
+        };
+      }, []);
+      return <div className="blintz-embed-slot" ref={slot} />;
+    }
+    return EmbedContent;
+  }, [home]);
   const frame = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
-    const element = contentEl.current;
-    if (container && !contentOrphaned && !(element && frame.current?.contains(element))) {
-      setOrphaned(placement);
-    }
+    // Children's effects run first: if no slot claimed `home`, park it.
+    if (container && !frame.current?.contains(home)) fallback.current?.appendChild(home);
   });
+
+  const ready = !!definition && validation !== "pending" && validation.length === 0;
 
   const updateAttributes = useMemo(() => {
     if (!editable) return undefined;
     return (next: EmbedAttributes) => {
-      const invalid = Object.keys(next).filter((key) => !ATTRIBUTE_KEY.test(key));
+      const invalid = Object.keys(next).filter((key) => !isAttributeKey(key));
       if (invalid.length > 0) {
         throw new Error(`[blintz] invalid embed attribute name: ${invalid.join(", ")}`);
       }
@@ -129,7 +133,7 @@ function EmbedFrame({ container }: { container: boolean }) {
           editable={editable}
           updateAttributes={updateAttributes}
         >
-          {hostOwnsContent ? content : undefined}
+          {container ? <Slot /> : undefined}
         </Embed>
       </EmbedBoundary>
     );
@@ -146,13 +150,13 @@ function EmbedFrame({ container }: { container: boolean }) {
       contentEditable={container ? undefined : false}
     >
       {body}
-      {container && !hostOwnsContent && content}
+      {container && <div className="blintz-embed-fallback" ref={fallback} />}
     </div>
   );
 }
 
 function hasIssues(result: EmbedValidationResult): readonly EmbedIssue[] {
-  return result.issues?.length ? result.issues : [];
+  return result?.issues?.length ? result.issues : [];
 }
 
 /**
@@ -166,19 +170,25 @@ function useValidation(
   attributes: EmbedAttributes,
 ): readonly EmbedIssue[] | "pending" {
   const key = JSON.stringify(attributes);
-  const immediate = useMemo((): readonly EmbedIssue[] | Promise<EmbedValidationResult> => {
+  // One call per (validator, attributes): a sync answer is used as is; an
+  // async one is wrapped once, so it never runs twice or rejects unhandled.
+  const immediate = useMemo((): readonly EmbedIssue[] | Promise<readonly EmbedIssue[]> => {
     if (!validator) return [];
     try {
+      const value = JSON.parse(key) as EmbedAttributes;
       const result =
         typeof validator === "function"
-          ? validator(JSON.parse(key) as EmbedAttributes)
-          : validator["~standard"].validate(JSON.parse(key));
+          ? validator(value)
+          : validator["~standard"].validate(value);
       if (result && typeof (result as Promise<unknown>).then === "function") {
-        return validateEmbedAttributes(validator, JSON.parse(key) as EmbedAttributes);
+        return Promise.resolve(result as Promise<EmbedValidationResult>).then(
+          hasIssues,
+          (error: unknown) => [{ message: describeError(error) }],
+        );
       }
       return hasIssues(result as EmbedValidationResult);
     } catch (error) {
-      return [{ message: error instanceof Error ? error.message : String(error) }];
+      return [{ message: describeError(error) }];
     }
   }, [validator, key]);
 
@@ -186,8 +196,8 @@ function useValidation(
   useEffect(() => {
     if (Array.isArray(immediate)) return;
     let live = true;
-    void (immediate as Promise<EmbedValidationResult>).then((result) => {
-      if (live) setSettled(hasIssues(result));
+    void (immediate as Promise<readonly EmbedIssue[]>).then((issues) => {
+      if (live) setSettled(issues);
     });
     return () => {
       live = false;
@@ -196,6 +206,10 @@ function useValidation(
 
   if (Array.isArray(immediate)) return immediate;
   return settled ?? "pending";
+}
+
+function describeError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function formatIssue(issue: EmbedIssue): string {

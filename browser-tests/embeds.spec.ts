@@ -79,6 +79,17 @@ test("Enter on an empty last line leaves a container", async ({ page }) => {
   );
 });
 
+test("Backspace at a container's start selects it, keeping the directive", async ({ page }) => {
+  const { editor } = await openEmbeds(page);
+  const text = await source(page);
+  // Home on the first visual line is the paragraph's start.
+  await editor.locator(".sample-callout p").first().click({ position: { x: 4, y: 6 } });
+  await page.keyboard.press("Home");
+  await page.keyboard.press("Backspace");
+  await expect(editor.locator(".blintz-embed.is-selected .sample-callout")).toBeVisible();
+  await expect(text).toHaveValue(/:::callout\{tone="note"\}\nContainers keep/);
+});
+
 test("the slash menu inserts a registered embed", async ({ page }) => {
   const { editor } = await openEmbeds(page, "empty");
   await editor.click();

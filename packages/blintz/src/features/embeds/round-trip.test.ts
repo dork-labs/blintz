@@ -67,8 +67,61 @@ describe("embed directives round-trip", () => {
     "Some text\n::: not a fence\n",
     "::x y\n",
     '::x{a="line1\nline2"}\n',
+    "::chart-\n",
+    '::x{:a="x"}\n',
   ])("leaves the colon-led prose %j byte-identical", async (md) => {
     expect(await roundTrip(md)).toBe(md);
+  });
+
+  it.each([
+    "\\::1abc\n",
+    "\\::é\n",
+    "\\::日本\n",
+    '\\::x{a="*b*"}\n',
+  ])("keeps the escaped directive-shaped prose %j as a paragraph", async (md) => {
+    const once = await roundTrip(md);
+    expect(once).toBe(md);
+    const type = await withEditor(once, (e) =>
+      e.action((ctx) => ctx.get(editorViewCtx).state.doc.child(0).type.name),
+    );
+    expect(type).toBe("paragraph");
+  });
+
+  it.each([
+    '::x{1a="x"}\n',
+    '::x{é="1"}\n',
+    '::x{日="1"}\n',
+    '::x{-a="1"}\n',
+    "::日本\n",
+    "::1abc\n",
+  ])("keeps the grammar-valid directive %j byte-identical", async (md) => {
+    expect(await roundTrip(md)).toBe(md);
+    const type = await withEditor(md, (e) =>
+      e.action((ctx) => ctx.get(editorViewCtx).state.doc.child(0).type.name),
+    );
+    expect(type).toBe("embed");
+  });
+
+  it("escapes a paragraph whose directive-shaped line spans marks", async () => {
+    const out = await withEditor("Start.\n", (e) =>
+      e.action((ctx) => {
+        const view = ctx.get(editorViewCtx);
+        const { schema } = view.state;
+        const em = schema.marks.emphasis!.create();
+        const paragraph = schema.nodes.paragraph!.create(null, [
+          schema.text('::x{a="'),
+          schema.text("b", [em]),
+          schema.text('"}'),
+        ]);
+        view.dispatch(view.state.tr.replaceWith(0, view.state.doc.content.size, paragraph));
+        return getMarkdown()(ctx);
+      }),
+    );
+    expect(out.startsWith("\\::x{a=")).toBe(true);
+    const type = await withEditor(out, (e) =>
+      e.action((ctx) => ctx.get(editorViewCtx).state.doc.child(0).type.name),
+    );
+    expect(type).toBe("paragraph");
   });
 
   it("keeps a label made of inline HTML and an image", async () => {

@@ -4,6 +4,7 @@ import type { useNodeViewFactory } from "@prosemirror-adapter/react";
 
 import { EmbedContainerView, EmbedView } from "./EmbedView";
 import { embedGrammarFeature } from "./grammar-feature";
+import { embedContainerKeymap } from "./keymap";
 import { embedContainerSchema, embedSchema } from "./schema";
 
 const INTERACTIVE =
@@ -50,5 +51,5 @@ export function embedsFeature(editor: Editor, nodeViewFactory: NodeViewFactory):
     }),
   );
 
-  editor.use(leafView).use(containerView);
+  editor.use(embedContainerKeymap).use(leafView).use(containerView);
 }

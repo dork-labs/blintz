@@ -1,7 +1,10 @@
+import type { Paragraph } from "mdast";
 import {
   directiveFromMarkdown,
   directiveToMarkdown,
 } from "mdast-util-directive";
+import { fromMarkdown } from "mdast-util-from-markdown";
+import { defaultHandlers, type Handle } from "mdast-util-to-markdown";
 import { directive } from "micromark-extension-directive";
 import type { Processor } from "unified";
 
@@ -22,21 +25,8 @@ import type { Processor } from "unified";
  * pairs in their written order, so `{a='x' b=y}` and `{#main .wide}` are
  * normalized (content survives) while `{a="x"}` is byte-identical.
  */
-/** A directive or container name: a letter, then letters, digits, `-` or `_`. */
-export const DIRECTIVE_NAME = /^[A-Za-z][A-Za-z0-9_-]*$/;
-
-/** An attribute key: a letter, `:` or `_`, then letters, digits, `-`, `.`, `:` or `_`. */
-export const ATTRIBUTE_KEY = /^[A-Za-z:_][A-Za-z0-9.:_-]*$/;
-
-// What follows the first `:` of a line that would parse as a leaf or container
-// directive opening: more colons, a name, an optional label and attributes,
-// then only whitespace to the end of the line.
-const DIRECTIVE_LINE_REST =
-  ":+[A-Za-z][A-Za-z0-9_-]*(?:\\[[^\\r\\n]*\\])?(?:\\{[^\\r\\n]*\\})?[\\t ]*(?=[\\r\\n]|$)";
-
 export function remarkBlockDirectives(this: Processor): void {
   const data = this.data();
-  const { flow } = directive();
   // `key="value"` is how hosts and agents write attributes, so keep it:
   // without this, `{id="42"}` would come back as `{#42}`. The `#id` / `.class`
   // shorthand is still read, and written back in the long form.
@@ -45,18 +35,93 @@ export function remarkBlockDirectives(this: Processor): void {
   (data.fromMarkdownExtensions ??= []).push(directiveFromMarkdown());
   (data.toMarkdownExtensions ??= []).push({
     ...toMarkdown,
-    unsafe: [
-      // Keep the label line-break guards; drop the phrasing rule (it exists
-      // only for text directives) and the upstream at-break rule, which
-      // escapes ANY line starting with `::` (`::: note`, `::std::cout`).
-      ...(toMarkdown.unsafe ?? []).filter(
-        (rule) => !rule.inConstruct?.includes("phrasing") && !rule.atBreak,
-      ),
-      // Escape a line only when it would really parse as a block directive.
-      { atBreak: true, character: ":", after: DIRECTIVE_LINE_REST },
-    ],
+    handlers: { ...toMarkdown.handlers, paragraph },
+    // Keep the label line-break guards. Drop the phrasing rule (it exists only
+    // for text directives) and the at-break rule, which escapes ANY line
+    // starting with `::`; the paragraph handler below escapes precisely.
+    unsafe: (toMarkdown.unsafe ?? []).filter(
+      (rule) => !rule.inConstruct?.includes("phrasing") && !rule.atBreak,
+    ),
   });
 }
+
+const { flow } = directive();
+const parseOptions = {
+  extensions: [{ flow }],
+  mdastExtensions: [directiveFromMarkdown()],
+};
+
+function parseFlow(markdown: string) {
+  return fromMarkdown(markdown, parseOptions).children;
+}
+
+// Validity comes from the real tokenizer, never a hand-copied regex: the
+// directive grammar's idea of a name or attribute key changes between
+// versions (Unicode names, a digit first), and any disagreement either loses
+// content or turns text into an embed.
+function memo(check: (value: string) => boolean) {
+  const cache = new Map<string, boolean>();
+  return (value: string): boolean => {
+    let known = cache.get(value);
+    if (known === undefined) {
+      known = check(value);
+      if (cache.size > 1000) cache.clear();
+      cache.set(value, known);
+    }
+    return known;
+  };
+}
+
+/** Whether `name` round-trips as a directive name (`::name`). */
+export const isDirectiveName = memo((name) => {
+  if (!name || /[\s[\]{}"'=:\\]/.test(name)) return false;
+  const nodes = parseFlow(`::${name}`);
+  const node = nodes[0];
+  return (
+    nodes.length === 1 &&
+    node?.type === "leafDirective" &&
+    node.name === name &&
+    node.children.length === 0 &&
+    Object.keys(node.attributes ?? {}).length === 0
+  );
+});
+
+/** Whether `key` round-trips as an attribute key (`{key="v"}`). */
+export const isAttributeKey = memo((key) => {
+  if (!key || /[\s"'={}\\]/.test(key)) return false;
+  const nodes = parseFlow(`::a{${key}="v"}`);
+  const node = nodes[0];
+  if (nodes.length !== 1 || node?.type !== "leafDirective") return false;
+  const attributes = node.attributes ?? {};
+  const keys = Object.keys(attributes);
+  return keys.length === 1 && keys[0] === key && attributes[key] === "v";
+});
+
+/** Whether a line, on its own, would open a leaf or container directive. */
+function opensDirective(line: string): boolean {
+  if (!/^[ \t]*::/.test(line)) return false;
+  const node = parseFlow(line)[0];
+  return node?.type === "leafDirective" || node?.type === "containerDirective";
+}
+
+/**
+ * The default paragraph handler plus one guard. When the written paragraph
+ * would re-parse as something other than one paragraph because a line opens
+ * a directive (`::note` typed as prose, or `::x{a="*b*"}` whose braces span
+ * marks), that line's first colon is escaped. A paragraph that already
+ * re-parses as a single paragraph is returned untouched, so colon-led prose
+ * stays byte-identical.
+ */
+const paragraph: Handle = (node, parent, state, info) => {
+  const value = defaultHandlers.paragraph(node as Paragraph, parent, state, info);
+  if (!value.includes("::")) return value;
+  const reparsed = parseFlow(value);
+  if (reparsed.length === 1 && reparsed[0]?.type === "paragraph") return value;
+  return value
+    .split("\n")
+    .map((line) => (opensDirective(line) ? line.replace(":", "\\:") : line))
+    .join("\n");
+};
 
 /** Directive attributes as written: `{src="a" .wide #main}` → `{ src: "a", class: "wide", id: "main" }`. */
 export type EmbedAttributes = Record<string, string>;

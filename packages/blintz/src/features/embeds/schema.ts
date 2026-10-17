@@ -1,7 +1,7 @@
 import type { MarkdownNode } from "@milkdown/kit/transformer";
 import { $nodeSchema } from "@milkdown/kit/utils";
 
-import { ATTRIBUTE_KEY, DIRECTIVE_NAME, type EmbedAttributes } from "./grammar";
+import { isAttributeKey, isDirectiveName, type EmbedAttributes } from "./grammar";
 
 export const embedId = "embed";
 export const embedContainerId = "embed_container";
@@ -28,7 +28,7 @@ export function cleanAttributes(raw: unknown): EmbedAttributes {
   const attributes: EmbedAttributes = {};
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return attributes;
   for (const [key, value] of Object.entries(raw)) {
-    if (typeof value === "string" && ATTRIBUTE_KEY.test(key)) attributes[key] = value;
+    if (typeof value === "string" && isAttributeKey(key)) attributes[key] = value;
   }
   return attributes;
 }
@@ -112,7 +112,7 @@ function domAttrs(type: string, attrs: Record<string, unknown>) {
 /** Pasted HTML is untrusted: an invalid name refuses the element outright. */
 function parseDomAttrs(dom: HTMLElement) {
   const name = dom.getAttribute("data-name") ?? "";
-  if (!DIRECTIVE_NAME.test(name)) return false;
+  if (!isDirectiveName(name)) return false;
   return {
     name,
     attributes: cleanAttributes(readJson(dom.getAttribute("data-attributes"))),

@@ -18,7 +18,7 @@ import { createTable } from "@milkdown/kit/preset/gfm";
 
 import { imageBlockSchema } from "../image-block/schema";
 import type { EmbedRegistry } from "../embeds/registry";
-import { DIRECTIVE_NAME } from "../embeds/grammar";
+import { isDirectiveName } from "../embeds/grammar";
 import {
   cleanAttributes,
   embedContainerSchema,
@@ -220,7 +220,7 @@ export function getGroups(filter: string, embeds: EmbedRegistry = {}) {
   // Host-registered embeds (the `embeds` prop), in registration order. A name
   // the directive grammar cannot write back (`a b`, `""`) is never offered.
   const embedEntries = Object.entries(embeds).filter(
-    ([name, definition]) => !definition.hideFromMenu && DIRECTIVE_NAME.test(name),
+    ([name, definition]) => !definition.hideFromMenu && isDirectiveName(name),
   );
   if (embedEntries.length > 0) {
     const embedGroup = groupBuilder.addGroup("embed", "Embeds");
