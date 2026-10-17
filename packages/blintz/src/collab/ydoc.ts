@@ -45,15 +45,20 @@ export function readYDoc(model: MarkdownModel, ydoc: Y.Doc, options: Pick<YDocOp
  *
  * A writer that read the document a while ago (an agent) should pass the
  * `base` from {@link readYDoc}: then edits others made since that read are
- * kept too, not overwritten by the writer's older copy.
+ * kept too, not overwritten by the writer's older copy. Every write returns
+ * a fresh `base`; use it (or read again) for the next write, since replaying
+ * the same base twice applies the change twice. Two writers changing the
+ * same words from one base both land (their edits interleave), and an edit
+ * to a block someone else deleted meanwhile is dropped, as in any CRDT.
  */
 export function applyMarkdownToYDoc(
   model: MarkdownModel,
   ydoc: Y.Doc,
   markdown: string,
   options: YDocOptions = {},
-): void {
+): { base: Uint8Array } {
   if (options.base) {
+    assertBaseFrom(ydoc, options.base);
     // Three-way: replay the writer's change on a copy of what they read, and
     // apply only that difference. Yjs merges it with everything since.
     const fork = new Y.Doc();
@@ -63,7 +68,7 @@ export function applyMarkdownToYDoc(
     const change = Y.encodeStateAsUpdate(fork, before);
     fork.destroy();
     Y.applyUpdate(ydoc, change, options.origin);
-    return;
+    return { base: Y.encodeStateAsUpdate(ydoc) };
   }
   const fragment = ydoc.getXmlFragment(options.field ?? DEFAULT_FIELD);
   // The document as live editors hold it (heading ids, trailing paragraph),
@@ -73,6 +78,30 @@ export function applyMarkdownToYDoc(
     // Fresh binding metadata: diff by content, not by a previous mapping.
     updateYFragment(ydoc, fragment, doc, { mapping: new Map(), isOMark: new Map() });
   }, options.origin);
+  return { base: Y.encodeStateAsUpdate(ydoc) };
+}
+
+/**
+ * A `base` must be state this Y.Doc already has: everything in it, nothing
+ * more. One from another copy of the document (a server rebuilt from saved
+ * markdown, a different file) can't be merged: Yjs would hold the write as
+ * unresolvable and hand that to every client.
+ */
+function assertBaseFrom(ydoc: Y.Doc, base: Uint8Array): void {
+  let wanted: Map<number, number>;
+  try {
+    wanted = Y.decodeStateVector(Y.encodeStateVectorFromUpdate(base));
+  } catch {
+    throw new Error("[blintz] `base` is not a Yjs update; pass the `base` from readYDoc().");
+  }
+  const has = Y.decodeStateVector(Y.encodeStateVector(ydoc));
+  for (const [client, clock] of wanted) {
+    if ((has.get(client) ?? 0) < clock) {
+      throw new Error(
+        "[blintz] `base` was read from a different copy of this document (or a newer one). Read it again with readYDoc().",
+      );
+    }
+  }
 }
 
 /** The markdown a Y.Doc holds, exactly as the editor would write it. */

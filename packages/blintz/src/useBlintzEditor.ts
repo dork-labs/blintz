@@ -10,6 +10,7 @@ import {
 } from "@milkdown/kit/core";
 import type { Ctx } from "@milkdown/kit/ctx";
 import { gfm } from "@milkdown/kit/preset/gfm";
+import { tableCellNullAlignment, tableHeaderNullAlignment } from "./features/table/alignment";
 import { clipboard } from "@milkdown/kit/plugin/clipboard";
 import { history } from "@milkdown/kit/plugin/history";
 import { indent } from "@milkdown/kit/plugin/indent";
@@ -154,7 +155,7 @@ export function useBlintzEditor({
           editable: editablePredicate(() => editableRef.current),
         }));
         ctx.get(listenerCtx).markdownUpdated((_ctx: Ctx, md, prevMd) => {
-          if (md === prevMd) return;
+          if (md === prevMd || md === editorValueRef.current) return;
           const confirmed = source.confirmedChangeText(_ctx.get(editorViewCtx).state);
           if (confirmed !== undefined) { editorValueRef.current = confirmed; return; }
           editorValueRef.current = md;
@@ -174,6 +175,8 @@ export function useBlintzEditor({
       )
       .use(stripEmptyLineBreaks)
       .use(gfm)
+      .use(tableCellNullAlignment)
+      .use(tableHeaderNullAlignment)
       // A plugin with its own undo (collaboration) replaces the built-in one.
       .use((pluginsRef.current ?? []).some((plugin) => plugin.replacesHistory) ? [] : history)
       .use(indent)
@@ -252,6 +255,9 @@ export function useBlintzEditor({
   // External value changes (e.g. "reset to seed") → push into the editor.
   useEffect(() => {
     if (loading) return;
+    // A plugin that keeps the document (collaboration) owns it: replacing it
+    // here would overwrite everyone's shared document.
+    if ((pluginsRef.current ?? []).some((plugin) => plugin.ownsDocument)) return;
     if (
       value === editorValueRef.current &&
       sourceRevision === revisionRef.current

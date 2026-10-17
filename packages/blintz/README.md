@@ -159,7 +159,9 @@ const plugins = useMemo(
 
 - **Remote edits** appear in place, and cursors and selections survive them. Other people's cursors show with their name and color.
 - **Undo** reverts only this person's own edits. The editor's built-in history steps aside.
-- **Markdown is still the saved form.** `onChange` reports the document after every change, including other people's. Leave `value` alone while collaborating: the shared document is the source of truth.
+- **Markdown is still the saved form.** `onChange` reports the document after every change, including other people's. It stays quiet until the shared document first arrives, so an editor that mounts before the provider syncs never reports an empty page.
+- **`value` is ignored** while `collaboration()` is loaded: the shared document is the source of truth, and replacing it would overwrite everyone's work. Change the document with `applyMarkdownToYDoc` instead.
+- **Undo inside code blocks** is the same per-person undo.
 - **`yjs`, `y-prosemirror` and `y-protocols`** are optional peer dependencies, imported only by `blintz/collab`.
 
 ### On the server
@@ -173,15 +175,21 @@ const model = await createMarkdownModel(); // once per process or worker
 
 applyMarkdownToYDoc(model, ydoc, markdown); // seed a document before editors connect
 
-const { markdown: current, base } = readYDoc(model, ydoc); // an agent reads…
-applyMarkdownToYDoc(model, ydoc, edited, { base }); // …and later writes its change
+let { markdown: current, base } = readYDoc(model, ydoc); // an agent reads…
+({ base } = applyMarkdownToYDoc(model, ydoc, edited, { base })); // …writes its change, and keeps the new base
 ```
 
 `applyMarkdownToYDoc` changes as little as it can. Unchanged blocks keep their identity, edited text changes character by character, and writing identical content changes nothing. With the `base` from `readYDoc`, only the writer's own change (base to new markdown) is applied, so whatever people typed since the read stays. Without `base`, the document is made to equal the markdown.
 
+A few rules for `base`:
+
+- Every write returns a fresh `base`. Use it for the next write, or read again. Replaying the same base twice applies the change twice.
+- A `base` from another copy of the document is refused with an error. That happens, for example, after the server rebuilds the Y.Doc from saved markdown. Read again from the live document.
+- Two writers changing the same words from one base both land, and their edits interleave. An edit to a block someone else deleted meanwhile is dropped, as in any CRDT.
+
 Seed documents on the server: an editor shows what the shared fragment holds, so an empty fragment means an empty page.
 
-In Node, Milkdown's internal timers need the global `addEventListener` and `dispatchEvent`. `createMarkdownModel` adds those two functions (and `removeEventListener`), backed by a private `EventTarget`, only when they are missing. Nothing else is added.
+In Node, Milkdown's internal timers need the global `addEventListener` and `dispatchEvent`. `createMarkdownModel` adds those two functions (and `removeEventListener`), backed by a private `EventTarget`, only when they are missing. Nothing else is added. Those timers also leave a few seconds of pending `setTimeout`s, so a short-lived script or worker exits about 3 seconds after its last `createMarkdownModel`.
 
 ## Why Blintz
 
@@ -204,7 +212,7 @@ It works at the seam Milkdown itself draws. The engine is framework-agnostic: Pr
 - Diagrams: ` ```mermaid ` blocks drawn with your copy of mermaid, loaded only when needed (see [Diagrams](#diagrams)).
 - Math: inline `$…$` and block math via KaTeX, round-tripping to `$$…$$`.
 - Images: uploader or URL input, with captions.
-- Tables: GFM tables with column and row drag handles, plus a keyboard and touch menu to add, move or delete rows and columns.
+- Tables: GFM tables with column and row drag handles, plus a keyboard and touch menu to add, move or delete rows and columns. Columns without an alignment stay unaligned (`| - |`), new tables included.
 - Links: hover preview and an inline edit tooltip.
 - Wiki links: `[[Page#Heading|label]]` with host resolution and a `[[` suggestion menu (see [Wiki links](#wiki-links)).
 - Collaboration: real-time editing through Yjs, with cursors, per-person undo and server-side markdown merges (see [Collaboration](#collaboration)).
@@ -292,7 +300,7 @@ The optional `sourceRevision` prop identifies an external source revision, inclu
 
 `port.range(from, to)` maps an editor range (ProseMirror positions, `[from, to)`) to raw markdown ranges, with the same evidence rules as `selection()`. For example, `@blintz/comments` gives a thread's range so an agent can quote it from the file.
 
-Any entry in `plugins` normally makes `bindSource` require an exact model match, because a plugin could change how markdown is parsed. A plugin that brings its own undo (as `collaboration()` does) sets `replacesHistory: true`, and the editor leaves out its built-in history. A plugin that only adds decorations, views or key handling can say so with `preservesSourceMapping: true` (e.g. `Object.assign(myPlugin, { preservesSourceMapping: true })`); `@blintz/comments` does.
+Any entry in `plugins` normally makes `bindSource` require an exact model match, because a plugin could change how markdown is parsed. A plugin that brings its own undo (as `collaboration()` does) sets `replacesHistory: true`, and the editor leaves out its built-in history. A plugin that owns the document (also `collaboration()`) sets `ownsDocument: true`, and the editor ignores `value` after mount. `isCollaboratorChange(tr)` tells a collaborator's change from the editor's own edits. A plugin that only adds decorations, views or key handling can say so with `preservesSourceMapping: true` (e.g. `Object.assign(myPlugin, { preservesSourceMapping: true })`); `@blintz/comments` does.
 
 ### Document resets
 

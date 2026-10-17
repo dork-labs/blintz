@@ -20,6 +20,7 @@ import {
 } from "@milkdown/kit/core";
 import { Clock, Container, Ctx, type MilkdownPlugin } from "@milkdown/kit/ctx";
 import { gfm } from "@milkdown/kit/preset/gfm";
+import { tableCellNullAlignment, tableHeaderNullAlignment } from "./features/table/alignment";
 import type { Node, Schema } from "@milkdown/kit/prose/model";
 import { EditorState } from "@milkdown/kit/prose/state";
 import { trailingConfig } from "@milkdown/kit/plugin/trailing";
@@ -85,6 +86,8 @@ function registerGrammar(editor: Editor): void {
     .use(commonmarkWithoutEmptyLinePreservation)
     .use(stripEmptyLineBreaks)
     .use(gfm)
+      .use(tableCellNullAlignment)
+      .use(tableHeaderNullAlignment)
     .use(remarkMathPlugin)
     .use(remarkMathBlockPlugin)
     .use(mathInlineSchema)
@@ -113,6 +116,9 @@ function ensureTimerEvents(): void {
   >;
   if (typeof scope.addEventListener === "function" && typeof scope.dispatchEvent === "function") return;
   const target = new EventTarget();
+  // Every model waits on a few timers at once; Node warns past 10 listeners.
+  const events = (globalThis as { process?: { getBuiltinModule?: (id: string) => { setMaxListeners?: (n: number, ...t: EventTarget[]) => void } | undefined } }).process?.getBuiltinModule?.("node:events");
+  events?.setMaxListeners?.(0, target);
   scope.addEventListener = target.addEventListener.bind(target);
   scope.removeEventListener = target.removeEventListener.bind(target);
   scope.dispatchEvent = target.dispatchEvent.bind(target);

@@ -49,7 +49,7 @@ function network(...docs: Y.Doc[]) {
   }
 }
 
-async function editorOn(ydoc: Y.Doc, onChange?: (md: string) => void) {
+async function editorOn(ydoc: Y.Doc, onChange?: (md: string) => void, value = "") {
   let editor: Editor | null = null;
   const capture = Object.assign(({ editor: e }: { editor: Editor }) => void (editor = e), {
     preservesSourceMapping: true,
@@ -59,10 +59,12 @@ async function editorOn(ydoc: Y.Doc, onChange?: (md: string) => void) {
   const root = createRoot(host);
   mounted.push({ root, host });
   const plugins = [collaboration({ fragment: ydoc.getXmlFragment("prosemirror") }), capture];
-  await act(async () => root.render(<MarkdownEditor value="" onChange={onChange} plugins={plugins} />));
+  await act(async () => root.render(<MarkdownEditor value={value} onChange={onChange} plugins={plugins} />));
   await waitFor(() => !!editor && !!host.querySelector(".ProseMirror"));
   const view = (): EditorView => (editor as Editor).action((ctx) => ctx.get(editorViewCtx));
-  return { host, view };
+  const rerender = (next: string) =>
+    act(async () => root.render(<MarkdownEditor value={next} onChange={onChange} plugins={plugins} />));
+  return { host, view, rerender };
 }
 
 const DOC = "# Plan\n\nFirst paragraph.\n\nSecond paragraph.\n";
@@ -130,4 +132,35 @@ it("undoes only this person's own edits", async () => {
   await waitFor(() => !one.host.textContent!.includes("Mine."));
   expect(one.host.textContent).toContain("Theirs.");
   await waitFor(() => !two.host.textContent!.includes("Mine."));
+});
+
+it("ignores the host's value while collaborating", async () => {
+  const model = await createMarkdownModel();
+  const server = new Y.Doc();
+  applyMarkdownToYDoc(model, server, DOC);
+  const a = new Y.Doc();
+  Y.applyUpdate(a, Y.encodeStateAsUpdate(server));
+  network(server, a);
+  const one = await editorOn(a);
+  await waitFor(() => one.host.textContent!.includes("Second paragraph."));
+  await one.rerender("# Something else entirely\n");
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 50)));
+  expect(one.host.textContent).toContain("Second paragraph.");
+  expect(yDocToMarkdown(model, server)).toContain("Second paragraph.");
+});
+
+it("doesn't report an empty document before the shared one arrives", async () => {
+  const model = await createMarkdownModel();
+  const a = new Y.Doc();
+  const changes = vi.fn();
+  const one = await editorOn(a, changes, "# Saved file\n\nWith content.\n");
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 300)));
+  expect(changes.mock.calls.some(([md]) => md.trim() === "")).toBe(false);
+  // Then the provider syncs the real document.
+  const server = new Y.Doc();
+  applyMarkdownToYDoc(model, server, DOC);
+  network(server, a);
+  Y.applyUpdate(a, Y.encodeStateAsUpdate(server), "network");
+  await waitFor(() => one.host.textContent!.includes("Second paragraph."));
+  await waitFor(() => changes.mock.calls.some(([md]) => md.includes("Second paragraph.")));
 });

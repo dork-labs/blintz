@@ -15,6 +15,10 @@ const SEED = `# Shared notes
 Two people are editing this page. Type on either side.
 
 The agent can rewrite this line without touching anyone's typing.
+
+\`\`\`js
+const shared = true;
+\`\`\`
 `;
 
 /** One person: their own Y.Doc and presence, wired to the others below. */

@@ -108,4 +108,44 @@ describe("applyMarkdownToYDoc (Node, no DOM)", () => {
     applyMarkdownToYDoc(model, ydoc, DOC);
     expect(yDocToMarkdown(model, ydoc)).toBe(DOC);
   });
+
+  it("keeps unaligned tables unaligned through Yjs", async () => {
+    const model = await createMarkdownModel();
+    const ydoc = new Y.Doc();
+    const md = "| a | b |\n| - | - |\n| 1 | 2 |\n\nAfter.\n";
+    applyMarkdownToYDoc(model, ydoc, md);
+    const out = yDocToMarkdown(model, ydoc);
+    expect(out).not.toContain(":-");
+    expect(out).toBe(model.serialize(model.document(md)));
+  });
+
+  it("refuses a base from another copy of the document, and a malformed one", async () => {
+    const model = await createMarkdownModel();
+    const original = new Y.Doc();
+    applyMarkdownToYDoc(model, original, DOC);
+    const read = readYDoc(model, original);
+    // The server restarts and rebuilds the document from saved markdown.
+    const rebuilt = new Y.Doc();
+    applyMarkdownToYDoc(model, rebuilt, DOC);
+    expect(() => applyMarkdownToYDoc(model, rebuilt, DOC + "\nMore.\n", { base: read.base })).toThrow(
+      /different copy/,
+    );
+    expect(rebuilt.store.pendingStructs).toBeNull();
+    expect(() => applyMarkdownToYDoc(model, rebuilt, DOC, { base: new Uint8Array([1, 2, 3]) })).toThrow(
+      /not a Yjs update/,
+    );
+  });
+
+  it("returns a base for the next write, so a change is never applied twice", async () => {
+    const model = await createMarkdownModel();
+    const ydoc = new Y.Doc();
+    applyMarkdownToYDoc(model, ydoc, DOC);
+    let { base, markdown } = readYDoc(model, ydoc);
+    markdown = markdown.replace("Third.", "Third 0.");
+    ({ base } = applyMarkdownToYDoc(model, ydoc, markdown, { base }));
+    markdown = markdown.replace("Third 0.", "Third 0 1.");
+    applyMarkdownToYDoc(model, ydoc, markdown, { base });
+    expect(yDocToMarkdown(model, ydoc)).toContain("Third 0 1.\n");
+    expect(yDocToMarkdown(model, ydoc)).not.toContain("0 0");
+  });
 });

@@ -78,3 +78,54 @@ it("keeps a thread on its words while a collaborator edits elsewhere", async () 
   expect(host.querySelector('[data-comment-id="t"]')?.textContent).toBe("Friday");
   expect(api!.rangeOf("t")).not.toBeNull();
 });
+
+it("orphans a thread a collaborator deleted, never moving it, and restores it on their undo", async () => {
+  const model = await createMarkdownModel();
+  const server = new Y.Doc();
+  applyMarkdownToYDoc(model, server, "Standup moved to Friday too.\n\nThe launch is on Friday.\n");
+  const mine = new Y.Doc();
+  Y.applyUpdate(mine, Y.encodeStateAsUpdate(server));
+  server.on("update", (update: Uint8Array, origin: unknown) => origin !== "net" && Y.applyUpdate(mine, update, "net"));
+  mine.on("update", (update: Uint8Array, origin: unknown) => origin !== "net" && Y.applyUpdate(server, update, "net"));
+
+  let editor: Editor | null = null;
+  let api: BlintzComments | null = null;
+  const capture = Object.assign(({ editor: e }: { editor: Editor }) => void (editor = e), { preservesSourceMapping: true });
+  const collab = collaboration({ fragment: mine.getXmlFragment("prosemirror") });
+  function Harness({ threads }: { threads: CommentThreadRef[] }) {
+    api = useBlintzComments({ threads });
+    return <MarkdownEditor value="" plugins={[collab, api.plugin, capture]} />;
+  }
+  host = document.createElement("div");
+  document.body.append(host);
+  root = createRoot(host);
+  await act(async () => root!.render(<Harness threads={[]} />));
+  await waitFor(() => !!editor && host!.textContent!.includes("launch"));
+  const view = (): EditorView => (editor as Editor).action((ctx) => ctx.get(editorViewCtx));
+  const text = docText(view().state.doc);
+  const at = text.text.lastIndexOf("Friday");
+  view().dispatch(
+    view().state.tr.setSelection(
+      TextSelection.create(view().state.doc, positionAt(text, at, "start")!, positionAt(text, at + 6, "end")!),
+    ),
+  );
+  const anchor = api!.anchorSelection()!;
+  await act(async () => root!.render(<Harness threads={[{ id: "t", anchor }]} />));
+  await waitFor(() => api!.rangeOf("t") !== null);
+
+  // A collaborator deletes the commented word, with an undo manager.
+  const fragment = server.getXmlFragment("prosemirror");
+  const undoManager = new Y.UndoManager(fragment);
+  const second = (fragment.get(1) as Y.XmlElement).get(0) as Y.XmlText;
+  await act(async () => second.delete("The launch is on ".length, 6));
+  await waitFor(() => api!.rangeOf("t") === null);
+  // Someone types elsewhere: the thread must not jump to the other "Friday".
+  await act(async () => ((fragment.get(0) as Y.XmlElement).get(0) as Y.XmlText).insert(0, "Note: "));
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 30)));
+  expect(api!.rangeOf("t")).toBeNull();
+  // The collaborator undoes their deletion: the thread comes back in place.
+  await act(async () => void undoManager.undo());
+  await waitFor(() => host!.querySelector('[data-comment-id="t"]')?.textContent === "Friday");
+  const range = api!.rangeOf("t")!;
+  expect(view().state.doc.textBetween(range.from - 17, range.from)).toBe("The launch is on ");
+});

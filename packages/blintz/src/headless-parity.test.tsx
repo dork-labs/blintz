@@ -43,7 +43,12 @@ async function editorFor(value: string): Promise<Editor> {
 
 function shape(schema: Schema) {
   const nodes = Object.fromEntries(
-    Object.entries(schema.nodes).map(([name, type]) => [name, Object.keys(type.spec.attrs ?? {}).sort()]),
+    Object.entries(schema.nodes).map(([name, type]) => [
+      name,
+      Object.entries(type.spec.attrs ?? {})
+        .map(([attr, spec]) => `${attr}=${JSON.stringify((spec as { default?: unknown }).default)}`)
+        .sort(),
+    ]),
   );
   const marks = Object.fromEntries(
     Object.entries(schema.marks).map(([name, type]) => [name, Object.keys(type.spec.attrs ?? {}).sort()]),

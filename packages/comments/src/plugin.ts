@@ -1,7 +1,8 @@
 import type { Node } from "@milkdown/kit/prose/model";
 import { Plugin, PluginKey, type EditorState, type Transaction } from "@milkdown/kit/prose/state";
 import { Decoration, DecorationSet, type EditorView } from "@milkdown/kit/prose/view";
-import { DOCUMENT_RESET_META } from "blintz";
+import { DOCUMENT_RESET_META, isCollaboratorChange } from "blintz";
+import { StepMap, type Mappable } from "@milkdown/kit/prose/transform";
 
 import {
   anchorFromRange,
@@ -142,16 +143,34 @@ function sync(previous: CommentsState, doc: Node, display: CommentsDisplay): Com
 }
 
 /**
- * Whether the document was rebuilt rather than edited: the host replaced it
- * (a new `value`, as Blintz tags it) or a collaborator's change arrived.
+ * Whether the host replaced the document (a new `value`, as Blintz tags it).
  * Select-all and type looks identical step for step, so the step shape is
  * never used to decide this.
  */
 function isHostReset(tr: Transaction): boolean {
-  if (tr.getMeta(DOCUMENT_RESET_META) === true) return true;
-  // Collaboration (y-prosemirror) applies every remote change, and Yjs undo,
-  // by replacing the whole document: re-find threads by their anchors then.
-  return (tr.getMeta("y-sync$") as { isChangeOrigin?: boolean } | undefined)?.isChangeOrigin === true;
+  return tr.getMeta(DOCUMENT_RESET_META) === true;
+}
+
+/**
+ * How positions move through a transaction. A collaborator's change arrives
+ * as a whole-document replacement, so its own mapping would collapse every
+ * thread; map through the span that actually differs instead, as if it were
+ * an ordinary edit (a remote deletion orphans, a remote undo restores).
+ */
+function mappingFor(tr: Transaction): Mappable {
+  if (!isCollaboratorChange(tr)) return tr.mapping;
+  const before = tr.before.content;
+  const after = tr.doc.content;
+  const start = before.findDiffStart(after);
+  if (start === null) return StepMap.empty;
+  let { a: endBefore, b: endAfter } = before.findDiffEnd(after)!;
+  // On repeated content the two scans can cross; widen to stay consistent.
+  const overlap = start - Math.min(endBefore, endAfter);
+  if (overlap > 0) {
+    endBefore += overlap;
+    endAfter += overlap;
+  }
+  return new StepMap([start, endBefore - start, endAfter - start]);
 }
 
 /**
@@ -197,13 +216,14 @@ function mapThrough(previous: CommentsState, tr: Transaction, display: CommentsD
   const lastAnchors = new Map(previous.lastAnchors);
   const deletedAnchors = new Map(previous.deletedAnchors);
   // Keep each deletion point on the spot where undo would put the words back.
-  const deletedAt = new Map([...previous.deletedAt].map(([id, pos]) => [id, tr.mapping.map(pos, -1)]));
+  const mapping = mappingFor(tr);
+  const deletedAt = new Map([...previous.deletedAt].map(([id, pos]) => [id, mapping.map(pos, -1)]));
   const reset = isHostReset(tr);
   let model: ReturnType<typeof docText> | undefined;
   for (const [id, range] of previous.ranges) {
     // Typing at either edge does not extend a comment.
-    const from = tr.mapping.map(range.from, 1);
-    const to = tr.mapping.map(range.to, -1);
+    const from = mapping.map(range.from, 1);
+    const to = mapping.map(range.to, -1);
     if (from < to) {
       ranges.set(id, { from, to, match: range.match });
       continue;

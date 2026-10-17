@@ -1,10 +1,22 @@
 import { keymap } from "@milkdown/kit/prose/keymap";
 import { $prose } from "@milkdown/kit/utils";
-import { redo, undo, yCursorPlugin, ySyncPlugin, yUndoPlugin } from "y-prosemirror";
+import {
+  redo,
+  redoCommand,
+  undo,
+  undoCommand,
+  yCursorPlugin,
+  ySyncPlugin,
+  ySyncPluginKey,
+  yUndoPlugin,
+} from "y-prosemirror";
+
+import { codeBlockConfig } from "../features/code-block/config";
 import type { Awareness } from "y-protocols/awareness";
 import type * as Y from "yjs";
 
 import type { BlintzPlugin } from "../plugin";
+import { registerCollaboratorChangeKey } from "../remote-changes";
 
 /** Who this collaborator is, as others see their cursor. */
 export interface CollaborationUser {
@@ -38,8 +50,13 @@ export interface CollaborationOptions {
  * read at mount.
  */
 export function collaboration(options: CollaborationOptions): BlintzPlugin {
+  registerCollaboratorChangeKey((ySyncPluginKey as unknown as { key: string }).key);
   const plugin: BlintzPlugin = ({ editor }) => {
     editor
+      // Undo inside code blocks goes to Yjs too (only this person's edits).
+      .config((ctx) =>
+        ctx.update(codeBlockConfig.key, (prev) => ({ ...prev, undo: undoCommand, redo: redoCommand })),
+      )
       .use($prose(() => ySyncPlugin(options.fragment)))
       .use($prose(() => yUndoPlugin()))
       .use(
@@ -57,5 +74,6 @@ export function collaboration(options: CollaborationOptions): BlintzPlugin {
     }
   };
   // Yjs undo replaces the editor's own history: one undo stack per person.
-  return Object.assign(plugin, { replacesHistory: true });
+  // The shared document is the source of truth: `value` can't replace it.
+  return Object.assign(plugin, { replacesHistory: true, ownsDocument: true });
 }

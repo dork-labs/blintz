@@ -51,3 +51,35 @@ test("undo in one editor undoes only that person's typing", async ({ page }) => 
   await expect(ada).toContainText("Grace.");
   await expect(grace).not.toContainText("Ada.");
 });
+
+test("undo inside a code block never removes a collaborator's code", async ({ page }) => {
+  const { ada, grace } = await open(page);
+  const graceCode = grace.locator(".cm-content").first();
+  await graceCode.click();
+  await page.keyboard.press("ControlOrMeta+End");
+  await page.keyboard.type(" // grace");
+  await expect(ada.locator(".cm-content").first()).toContainText("// grace");
+  const adaCode = ada.locator(".cm-content").first();
+  await adaCode.click();
+  await page.keyboard.press("ControlOrMeta+End");
+  await page.keyboard.type(" // ada");
+  await expect(grace.locator(".cm-content").first()).toContainText("// ada");
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(adaCode).not.toContainText("// ada");
+  await expect(adaCode).toContainText("// grace");
+  await expect(grace.locator(".cm-content").first()).toContainText("// grace");
+});
+
+test("undo in a code block with no edits of one's own leaves others' code alone", async ({ page }) => {
+  const { ada, grace } = await open(page);
+  await grace.locator(".cm-content").first().click();
+  await page.keyboard.press("ControlOrMeta+End");
+  await page.keyboard.type(" // grace");
+  const adaCode = ada.locator(".cm-content").first();
+  await expect(adaCode).toContainText("// grace");
+  await adaCode.click();
+  await page.keyboard.press("ControlOrMeta+z");
+  await page.waitForTimeout(200);
+  await expect(adaCode).toContainText("// grace");
+  await expect(grace.locator(".cm-content").first()).toContainText("// grace");
+});

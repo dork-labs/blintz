@@ -53,4 +53,10 @@ export type BlintzPlugin = ((ctx: BlintzPluginContext) => void) & {
    * built-in history, so the two never fight over Mod-Z.
    */
   readonly replacesHistory?: boolean;
+  /**
+   * Set to `true` when the plugin keeps the document itself (collaboration:
+   * the shared Y.Doc is the source of truth). The editor then ignores
+   * `value` after mount instead of replacing everyone's document with it.
+   */
+  readonly ownsDocument?: boolean;
 };
