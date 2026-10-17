@@ -106,6 +106,11 @@ describe("model.source().fromSource edge cases", () => {
     ["is null when start is past end", "Plain text.\n", () => [6, 2], null],
     ["is null for NaN", "Plain text.\n", () => [Number.NaN, 4], null],
     ["is null for markup alone", "Some **bold** text.\n", (md) => [md.indexOf("**"), md.indexOf("**") + 2], null],
+    // Line endings split a paragraph's text into pieces with no position: the
+    // paragraph counts whole.
+    ["covers a soft-wrapped paragraph whole", "Intro.\n\nline one\n   indented continuation\n", (md) => [0, md.length], "Intro.\nline one￼indented continuation"],
+    ["refuses an end inside a soft-wrapped paragraph", "Intro.\n\nline one\nline two\n", (md) => [0, md.indexOf("two")], null],
+    ["refuses a word inside a soft-wrapped paragraph", "Alpha line\nbeta line.\n", (md) => [md.indexOf("beta"), md.indexOf("beta") + 4], null],
     ["snaps across a CRLF and a BOM", "﻿First line.\r\n\r\nSecond line.\r\n", (md) => [md.indexOf("line."), md.indexOf("Second") + 6], "line.\nSecond"],
   ];
 

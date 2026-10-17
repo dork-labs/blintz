@@ -91,7 +91,7 @@ const found = resolveAnchor(model, latest, anchor);
 - **`createAnchor(model, markdown, start, end)`** anchors the text inside a raw range, as the editor would from that selection. Ends inside markup snap inward to the text (`**bold**` anchors `bold`), and atoms the range covers whole (wiki links, images, math) are included. An anchor needs at least one character of text, as in the editor, so an image or a formula on its own can't be anchored.
 - **Many threads, one parse:** pass `model.source(markdown)` in place of the markdown.
 
-Some text has no character-for-character source in the markdown: a text run containing an escape (`snake\_case`) or an entity (`&amp;`), which is often a whole paragraph, and inline code, code blocks and frontmatter. Such a run is addressed only whole:
+Some text has no character-for-character source in the markdown: a text run containing an escape (`snake\_case`) or an entity (`&amp;`), a paragraph wrapped over several lines (both often a whole paragraph), and inline code, code blocks and frontmatter. Such a run is addressed only whole, delimiters included (a range ending in a code span's backticks doesn't snap inward the way it does at `**`):
 
 - `createAnchor` includes it when the range covers it whole, and returns `null` when the range starts or ends inside it, rather than anchoring fewer words than asked.
 - `resolveAnchor` still finds a thread on it, but with `source: null`, exactly as the editor's `port.range` refuses it. So does a thread spanning more than 100 text runs.

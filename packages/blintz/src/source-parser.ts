@@ -119,10 +119,16 @@ export function parseSource(
       typeof start === "number" &&
       typeof end === "number" &&
       text.slice(start + bom, end + bom) === value;
+    // Text without an exact source is still tied to the raw node it came
+    // from, or, for pieces a transform rebuilt without a position (line
+    // endings split a paragraph's text), to the nearest ancestor that has one.
+    const owner = [active, ...parents.slice().reverse()].find(
+      (node) => typeof node?.position?.start.offset === "number" && typeof node.position.end.offset === "number",
+    );
     const span = exact
       ? { length: value.length, start: start! + bom, end: end! + bom }
-      : typeof start === "number" && typeof end === "number"
-        ? { length: value.length, rawStart: start + bom, rawEnd: end + bom }
+      : owner
+        ? { length: value.length, rawStart: owner.position!.start.offset! + bom, rawEnd: owner.position!.end.offset! + bom }
         : { length: value.length };
     textOrigins.set(
       current,

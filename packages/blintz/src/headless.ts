@@ -85,9 +85,9 @@ export interface MarkdownSource {
   /**
    * The document range of the text inside the raw range `[start, end)`, and
    * of any atom it covers whole. Ends inside markdown syntax snap inward to
-   * the nearest text. Text with no exact source (an escape, an entity, code)
-   * counts only whole: `null` when an end falls inside it, and when nothing
-   * mapped lies inside.
+   * the nearest text. Text with no exact source (an escape, an entity, code,
+   * a paragraph wrapped over lines) counts only whole: `null` when an end
+   * falls inside it, and when nothing mapped lies inside.
    */
   fromSource(start: number, end: number): { from: number; to: number } | null;
 }
