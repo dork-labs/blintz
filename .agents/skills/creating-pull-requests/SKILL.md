@@ -61,9 +61,9 @@ If the PR delivers only part of an issue, use `Refs` and keep the id out of the 
 
 ## CI
 
-`.github/workflows/verify.yml` ("Verify editor") runs on every PR and on pushes to `main`, on `macos-14`: `npm ci`, typecheck, unit tests, build, then the Playwright suite.
+`.github/workflows/verify.yml` ("Verify editor") runs on every PR and on pushes to `main`, on `macos-15`: `npm ci`, typecheck, unit tests, build, then the Playwright suite.
 
-- Screenshot baselines are macOS-specific, which is why CI runs on macOS. Don't regenerate them on another OS.
+- Screenshot baselines are macOS-specific, which is why CI runs on macOS. Regenerate them with the "Update screenshots" workflow (`gh workflow run update-screenshots.yml --ref <branch>`), which runs on the same macOS image as CI, then download its `screenshots` artifact into `browser-tests/`. Keep its `runs-on` equal to verify.yml's.
 - When the browser suite fails, CI uploads a `browser-diagnostics` artifact (Playwright report and traces):
 
   ```bash

@@ -23,7 +23,7 @@ npm run test:browser   # Playwright: layouts, themes, keyboard editing, screensh
 npm run build          # build the library
 ```
 
-There is no linter or formatter. CI (`.github/workflows/verify.yml`, macOS) runs typecheck, unit tests, build, then the browser suite. Screenshot baselines are macOS-only; update them with `npm run test:browser:update` only for an intended visual change.
+There is no linter or formatter. CI (`.github/workflows/verify.yml`, macOS) runs typecheck, unit tests, build, then the browser suite. Screenshot baselines are macOS-only and must come from CI's runner image; update them with the "Update screenshots" workflow (`.github/workflows/update-screenshots.yml`) only for an intended visual change.
 
 ## Rules
 

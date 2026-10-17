@@ -1,0 +1,25 @@
+name: Update screenshots
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  update:
+    # Must match the runner in verify.yml: approved screenshots use the
+    # macOS system font, so baselines only hold on the OS that checks them.
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install chromium
+      - run: npx playwright test --update-snapshots=all
+      - uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: browser-tests/**/*-snapshots/
+          retention-days: 7
