@@ -5,6 +5,7 @@ import { $inputRule, $nodeSchema, $prose, $remark } from "@milkdown/kit/utils";
 import {
   isWritableWikiLink,
   parseWikiLinkSource,
+  sourceIfUnchanged,
   remarkWikiLinks,
   stringifyWikiLink,
   type WikiLink,
@@ -54,10 +55,13 @@ export const wikiLinkSchema = $nodeSchema(wikiLinkId, () => ({
     heading: { default: null },
     label: { default: null },
     embed: { default: false },
-    // Internal: the source escaped its pipes (`[[a\\|b]]`); write it back so.
-    escapedPipe: { default: false },
+    // Internal: the link as written (`[[a\\|b]]`), written back while the
+    // parts are unchanged so unusual spellings survive a save.
+    source: { default: null },
   },
-  leafText: (node) => stringifyWikiLink(wikiLinkFromAttrs(node.attrs)),
+  leafText: (node) =>
+    sourceIfUnchanged({ ...wikiLinkFromAttrs(node.attrs), value: node.attrs.source ?? undefined }) ??
+    stringifyWikiLink(wikiLinkFromAttrs(node.attrs)),
   parseDOM: [
     {
       tag: 'a[data-type="wiki-link"]',
@@ -86,7 +90,7 @@ export const wikiLinkSchema = $nodeSchema(wikiLinkId, () => ({
         heading: node.heading ?? null,
         label: node.label ?? null,
         embed: node.embed === true,
-        escapedPipe: node.escapedPipe === true,
+        source: typeof node.value === "string" ? node.value : null,
       });
     },
   },
@@ -94,11 +98,8 @@ export const wikiLinkSchema = $nodeSchema(wikiLinkId, () => ({
     match: (node) => node.type.name === wikiLinkId,
     runner: (state, node) => {
       const link = wikiLinkFromAttrs(node.attrs);
-      const escapedPipe = node.attrs.escapedPipe === true;
-      state.addNode("wikiLink", undefined, stringifyWikiLink(link, escapedPipe), {
-        ...link,
-        escapedPipe,
-      });
+      const source = typeof node.attrs.source === "string" ? node.attrs.source : undefined;
+      state.addNode("wikiLink", undefined, source, { ...link });
     },
   },
 }));
@@ -121,7 +122,7 @@ export const wikiLinkInputRule = $inputRule(
       /(!?)\[\[([^[\]\r\n\ufffc]+)\]\]$/,
       (state, match, start, end) => {
         const [, bang, body] = match;
-        const { link, escapedPipe } = parseWikiLinkSource(body!, bang === "!");
+        const { link } = parseWikiLinkSource(body!, bang === "!");
         if (!isWritableWikiLink(link)) return null;
         const $start = state.doc.resolve(start);
         if ($start.parent.type.spec.code) return null;
@@ -129,7 +130,7 @@ export const wikiLinkInputRule = $inputRule(
         const inCode = (pos: number) =>
           state.doc.resolve(pos).marks().some((mark) => mark.type.spec.code);
         if (inCode(start) || inCode(end)) return null;
-        const node = wikiLinkSchema.type(ctx).create({ ...link, escapedPipe });
+        const node = wikiLinkSchema.type(ctx).create({ ...link, source: match[0] });
         return state.tr.replaceWith(start, end, node);
       },
     ),

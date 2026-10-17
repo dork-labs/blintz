@@ -108,6 +108,9 @@ export function isWritableWikiLink(link: WikiLink): boolean {
   const body = written.slice(link.embed ? 3 : 2, -2);
   if (body.length === 0 || body.length > MAX_WIKI_LINK_LENGTH) return false;
   if (/[[\]\r\n\ufffc]/.test(body)) return false;
+  // A part ending in `\\` right before `|` or `#` would read as an escape.
+  if (link.label !== null && /\\$/.test(link.heading ?? link.target)) return false;
+  if (link.heading !== null && /\\$/.test(link.target)) return false;
   const back = parseWikiLinkBody(body, link.embed);
   return (
     back.target === link.target &&
@@ -116,7 +119,7 @@ export function isWritableWikiLink(link: WikiLink): boolean {
   );
 }
 
-const codes = { bang: 33, leftParen: 40, leftBracket: 91, rightBracket: 93, caret: 94 } as const;
+const codes = { bang: 33, leftParen: 40, leftBracket: 91, backslash: 92, rightBracket: 93, caret: 94 } as const;
 
 function isLineEnding(code: Code): boolean {
   return code !== null && code < -2;
@@ -206,13 +209,32 @@ const linkContinuation: Construct = {
       return inLabel(code);
     };
     const inLabel: State = (code) => {
-      if (code === null || isLineEnding(code) || code === codes.leftBracket) return nok(code);
+      if (code === null || code === codes.leftBracket) return nok(code);
+      if (isLineEnding(code)) {
+        // Commonmark allows a line break inside a reference label.
+        label += "\n";
+        effects.enter("lineEnding");
+        effects.consume(code);
+        effects.exit("lineEnding");
+        return inLabel;
+      }
+      if (code === codes.backslash) {
+        label += "\\";
+        consume(code);
+        return escaped;
+      }
       if (code === codes.rightBracket) {
         return defined.includes(normalizeIdentifier(label)) ? ok(code) : nok(code);
       }
       if (++size > MAX_WIKI_LINK_LENGTH) return nok(code);
       if (code === -2) label += "\t";
       else if (code >= 0) label += String.fromCodePoint(code);
+      consume(code);
+      return inLabel;
+    };
+    const escaped: State = (code) => {
+      if (code === null || isLineEnding(code)) return inLabel(code);
+      if (code >= 0) label += String.fromCodePoint(code);
       consume(code);
       return inLabel;
     };
@@ -265,19 +287,45 @@ export function wikiLinkFromMarkdown(): FromMarkdownExtension {
       wikiLink(this: CompileContext, token: Token) {
         const node = this.stack[this.stack.length - 1] as unknown as WikiLinkNode;
         const source = this.sliceSerialize(token);
-        const { link, escapedPipe } = parseWikiLinkSource(raw, source.startsWith("!"));
+        const { link } = parseWikiLinkSource(raw, source.startsWith("!"));
         Object.assign(node, link, { value: source });
-        if (escapedPipe) node.escapedPipe = true;
         this.exit(token);
       },
     },
   };
 }
 
+/**
+ * Write a link back exactly as it was written when its parts are unchanged
+ * (the node's `value` is its source), so `[[a\\|b|c]]` and other unusual
+ * spellings survive a save. Edited or new links are written in the canonical
+ * form. Inside a table cell an unescaped `|` would end the cell, so pipes
+ * are escaped there.
+ */
 const handleWikiLink: Handle = (node, _parent, state) => {
   const link = node as WikiLinkNode;
-  return stringifyWikiLink(link, link.escapedPipe === true || state.stack.includes("tableCell"));
+  const inCell = state.stack.includes("tableCell");
+  const source = sourceIfUnchanged(link);
+  if (source !== null && !(inCell && UNESCAPED_PIPE.test(source))) return source;
+  return stringifyWikiLink(link, inCell);
 };
+
+const UNESCAPED_PIPE = /(^|[^\\])\|/;
+
+/** The node's recorded source, when it still parses into the node's parts. */
+export function sourceIfUnchanged(link: WikiLink & { value?: string }): string | null {
+  const source = link.value;
+  if (typeof source !== "string") return null;
+  const match = /^(!?)\[\[([^]*)\]\]$/.exec(source);
+  if (!match) return null;
+  const { link: parsed } = parseWikiLinkSource(match[2]!, match[1] === "!");
+  return parsed.target === link.target &&
+    parsed.heading === link.heading &&
+    parsed.label === link.label &&
+    parsed.embed === link.embed
+    ? source
+    : null;
+}
 
 /** mdast-util-to-markdown extension: `wikiLink` nodes → `[[…]]`. */
 export function wikiLinkToMarkdown(): ToMarkdownExtension {

@@ -46,6 +46,7 @@ describe("wiki link grammar", () => {
     "Outside a table [[Page\\|alias]] too.\n",
     "See [[Page]][^1].\n\n[^1]: A note.\n",
     "[[a]][[b]]\n",
+    "Mixed [[a\\|b|c]] and [[a|b\\|c]] pipes.\n",
   ])("round-trips %j byte for byte", (md) => {
     expect(roundTrip(md)).toBe(md);
   });
@@ -107,6 +108,13 @@ describe("wiki link grammar", () => {
     expect(roundTrip(md)).toBe(baseTrip(md));
   });
 
+  it.each([
+    "[[a]][b\nc]\n\n[b c]: /u\n",
+    "[[a]][x\\[y]\n\n[x\\[y]: /u\n",
+  ])("leaves a reference with a line break or escape in its label to commonmark: %j", (md) => {
+    expect(roundTrip(md)).toBe(baseTrip(md));
+  });
+
   it("keeps a defined reference's URL instead of reading a wiki link", () => {
     const md = "[a]: http://x\n\n[[a]]\n";
     expect(roundTrip(md)).toBe(baseTrip(md));
@@ -146,6 +154,9 @@ describe("wiki link grammar", () => {
     [{ target: "y".repeat(1001), heading: null, label: null, embed: false }, false],
     [{ target: "y".repeat(1000), heading: null, label: null, embed: false }, true],
     [{ target: "a\\", heading: null, label: "b", embed: false }, false],
+    [{ target: "a", heading: "h\\", label: "b", embed: false }, false],
+    [{ target: "a\\", heading: "h", label: null, embed: false }, false],
+    [{ target: "a\\", heading: null, label: null, embed: false }, true],
   ])("isWritableWikiLink(%j) is %s", (link, expected) => {
     expect(isWritableWikiLink(link)).toBe(expected);
   });

@@ -69,7 +69,7 @@ export class WikiLinkResolver {
   /** The current entry for a link, starting resolution on first sight. */
   read(link: WikiLink): Entry | undefined {
     if (!this.resolve) return undefined;
-    const key = `${link.embed ? "!" : ""}${link.target}\u0000${link.heading ?? ""}`;
+    const key = [link.embed ? 1 : 0, link.target, link.heading === null ? "\u0001" : link.heading].join("\u0000");
     const cached = this.entries.get(key);
     if (cached) return cached;
     const settle = (entry: Entry) => {

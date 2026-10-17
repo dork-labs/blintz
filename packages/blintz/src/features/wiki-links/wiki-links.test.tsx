@@ -301,6 +301,18 @@ describe("<MarkdownEditor wikiLinks>", () => {
     expect(seen.sort()).toEqual([false, true]);
   });
 
+  it("never shares a resolution between an embed and a `!`-prefixed target", async () => {
+    const seen: string[] = [];
+    await mount("![[x]] [[!x]] [[a]] [[a#]]\n", {
+      resolve: (link) => {
+        seen.push(`${link.embed ? "embed" : "link"}:${link.target}:${link.heading}`);
+        return { exists: true };
+      },
+    });
+    await waitFor(() => seen.length === 4);
+    expect(seen.sort()).toEqual(["embed:x:null", "link:!x:null", "link:a:", "link:a:null"]);
+  });
+
   it("copies a link as its markdown in plain text", async () => {
     const el = await mount("[[Home#Intro|home]]\n", undefined);
     const view = viewOf(el);
