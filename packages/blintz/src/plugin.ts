@@ -38,4 +38,13 @@ export interface BlintzPluginContext {
  * };
  * <MarkdownEditor value={md} onChange={setMd} plugins={[highlight]} />
  */
-export type BlintzPlugin = (ctx: BlintzPluginContext) => void;
+export type BlintzPlugin = ((ctx: BlintzPluginContext) => void) & {
+  /**
+   * Set to `true` only for a plugin that adds no nodes, marks, parser or
+   * serializer rules, heading or trailing-paragraph config, and never changes
+   * documents itself (decorations, views and key handling are fine). Source
+   * mapping then treats the editor as unextended; otherwise any plugin makes
+   * `bindSource` require an exact model match.
+   */
+  readonly preservesSourceMapping?: boolean;
+};

@@ -8,6 +8,9 @@ import react from "@vitejs/plugin-react";
 const editorSrc = fileURLToPath(
   new URL("../../packages/blintz/src", import.meta.url),
 );
+const commentsSrc = fileURLToPath(
+  new URL("../../packages/comments/src", import.meta.url),
+);
 const monorepoRoot = fileURLToPath(new URL("../../", import.meta.url));
 
 export default defineConfig({
@@ -26,6 +29,7 @@ export default defineConfig({
         replacement: `${editorSrc}/theme/index.css`,
       },
       { find: /^blintz$/, replacement: `${editorSrc}/index.ts` },
+      { find: /^@blintz\/comments$/, replacement: `${commentsSrc}/index.ts` },
     ],
     // React is the one dep used by BOTH this app (React 19) and the package
     // (resolved from the monorepo). Force a single copy or hooks/context break.

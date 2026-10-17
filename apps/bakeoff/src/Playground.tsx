@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useBlintzComments } from "@blintz/comments";
+import { CommentsSidebar, type DemoThread } from "./CommentsSidebar";
 import { MarkdownEditor } from "blintz";
 import { SAMPLE_EMBEDS } from "./embeds";
 import { SAMPLE_WIKI_LINKS } from "./wiki-links";
@@ -24,6 +26,25 @@ export default function Playground() {
   const [editable, setEditable] = useState(query.get("readonly") !== "true");
   const [narrow, setNarrow] = useState(false);
   const [source, setSource] = useState(false);
+  const [threads, setThreads] = useState<DemoThread[]>([]);
+  const [activeThread, setActiveThread] = useState<string | null>(null);
+  const [orphaned, setOrphaned] = useState<string[]>([]);
+  const comments = useBlintzComments({
+    threads,
+    activeThreadId: activeThread,
+    onThreadClick: (ids) => setActiveThread(ids[0] ?? null),
+    onAnchorsChange: useCallback(
+      (updates: Array<{ id: string; anchor: DemoThread["anchor"] }>) =>
+        setThreads((all) =>
+          all.map((thread) => {
+            const update = updates.find((u) => u.id === thread.id);
+            return update ? { ...thread, anchor: update.anchor } : thread;
+          }),
+        ),
+      [],
+    ),
+    onOrphanedChange: setOrphaned,
+  });
   useEffect(() => {
     document.documentElement.dataset.appTheme = theme;
     document.documentElement.dataset.theme = theme;
@@ -114,8 +135,19 @@ export default function Playground() {
               embeds={SAMPLE_EMBEDS}
               wikiLinks={SAMPLE_WIKI_LINKS}
               mermaid={loadMermaid}
+              plugins={[comments.plugin]}
             />
           </section>
+          {specimen === "comments" && (
+            <CommentsSidebar
+              comments={comments}
+              threads={threads}
+              setThreads={setThreads}
+              active={activeThread}
+              setActive={setActiveThread}
+              orphaned={orphaned}
+            />
+          )}
           {source && (
             <aside className="specimen-source">
               <label htmlFor="markdown-source">Markdown source</label>

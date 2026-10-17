@@ -3,6 +3,7 @@ import {
   Editor,
   defaultValueCtx,
   editorViewCtx,
+  parserCtx,
   editorViewOptionsCtx,
   rootCtx,
 } from "@milkdown/kit/core";
@@ -13,7 +14,7 @@ import { history } from "@milkdown/kit/plugin/history";
 import { indent } from "@milkdown/kit/plugin/indent";
 import { listener, listenerCtx } from "@milkdown/kit/plugin/listener";
 import { upload } from "@milkdown/kit/plugin/upload";
-import { replaceAll } from "@milkdown/kit/utils";
+import { Slice } from "@milkdown/kit/prose/model";
 import { useEditor, useInstance } from "@milkdown/react";
 import type {
   useNodeViewFactory,
@@ -22,6 +23,7 @@ import type {
 
 import type { CtxHolder } from "./shared/editor-ctx";
 import type { BlintzPlugin } from "./plugin";
+import { DOCUMENT_RESET_META } from "./document-reset";
 import { SourceController, type SourceCallbacks } from "./source-controller";
 import { sourceEditorAssembly } from "./source-plugin";
 import { DEFAULT_EDITABLE, editablePredicate } from "./read-only";
@@ -159,7 +161,15 @@ export function useBlintzEditor({
       })
       // commonmark, minus its empty-line `<br />` round-trip hack (we store
       // clean markdown), plus a parse-time strip of legacy `<br />` artifacts.
-      .use(sourceEditorAssembly(source, pluginsRef.current ?? [], true))
+      .use(
+        sourceEditorAssembly(
+          source,
+          // Plugins that declare they leave the document model alone don't
+          // count as extensions for source mapping.
+          (pluginsRef.current ?? []).filter((plugin) => !plugin.preservesSourceMapping),
+          true,
+        ),
+      )
       .use(stripEmptyLineBreaks)
       .use(gfm)
       .use(history)
@@ -257,7 +267,22 @@ export function useBlintzEditor({
     queueMicrotask(() => {
       // Skip if unmounted/superseded or a newer value already landed.
       if (cancelled || editorValueRef.current !== value) return;
-      editor.action(replaceAll(value));
+      // Milkdown's `replaceAll`, plus a meta that marks the transaction as a
+      // host reset (plugins can't tell it from select-all + typing otherwise).
+      editor.action((ctx) => {
+        const view = ctx.get(editorViewCtx);
+        const doc = ctx.get(parserCtx)(value);
+        if (!doc) return;
+        const { state } = view;
+        view.dispatch(
+          state.tr
+            .replace(0, state.doc.content.size, new Slice(doc.content, 0, 0))
+            .setMeta(DOCUMENT_RESET_META, true)
+            // A different document from the host isn't an edit: undo must not
+            // turn it back into the old one.
+            .setMeta("addToHistory", false),
+        );
+      });
       const source = sourceRef.current!;
       source.port.bindSource(value, source.currentGeneration);
     });

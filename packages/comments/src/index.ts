@@ -1,12 +1,14 @@
-// @blintz/comments
+// @blintz/comments: comment threads anchored to text in a Blintz editor.
 //
-// Google-Docs-style comments for the Blintz editor: highlight a range, attach a
-// thread, resolve it. Planned; not yet implemented.
-//
-// Design direction (see README.md): the comment anchor primitive (a `comment`
-// mark, highlight decorations, and add/resolve/delete commands) ships here as a
-// Blintz plugin. The thread store and the thread UI live in the consuming app,
-// wired through a context this package exports. Comments stay out of the
-// markdown; they persist separately and re-anchor by quoted text on load.
+// You own the threads (storage, authors, replies, the sidebar); this package
+// owns where they sit in the text. Threads never touch the markdown: they are
+// highlights over the document, kept attached through edits, re-attached on
+// load from a text-quote anchor, and reported as orphaned when their text is
+// gone.
+import "./styles.css";
 
-export {};
+export { useBlintzComments } from "./useBlintzComments";
+export type { BlintzComments, UseBlintzCommentsOptions } from "./useBlintzComments";
+export type { CommentThreadRef } from "./plugin";
+export { anchorFromRange, docText, locateAnchor, CONTEXT_LENGTH } from "./anchor";
+export type { AnchorMatch, CommentAnchor, DocText } from "./anchor";

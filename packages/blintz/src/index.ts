@@ -13,6 +13,7 @@ export { MarkdownEditor } from "./MarkdownEditor";
 export type { MarkdownEditorProps } from "./MarkdownEditor";
 
 export type { BlintzPlugin, BlintzPluginContext } from "./plugin";
+export { DOCUMENT_RESET_META } from "./document-reset";
 
 // Embeds: block directives (`::name{…}`, `:::name … :::`) rendered by
 // host-registered components. The editor-free grammar and validator also ship
