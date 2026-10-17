@@ -47,6 +47,7 @@ const CORPUS = [
   "Tom &amp; Jerry \\*escaped\\* text, see [[Cast|the cast]] and $E=mc^2$ inline.\n\n```js\nconst x = 1;\n```\n",
   "Repeat words. Repeat words. Repeat words again.\n\n## Repeat words\n\nA footnote[^1] here.\n\n[^1]: The footnote text.\n",
   "Line one  \nline two after a hard break.\n\n***\n\n![alt text](image.png)\n\nLast paragraph.\n",
+  "The **launch** is on\nFriday after the review.\n\n- item **bold** one\n  continued here\n\nShip on Friday too.\n",
 ];
 
 /** Ranges to comment on: every word, a few word pairs, and spans across blocks. */

@@ -111,6 +111,12 @@ describe("model.source().fromSource edge cases", () => {
     ["covers a soft-wrapped paragraph whole", "Intro.\n\nline one\n   indented continuation\n", (md) => [0, md.length], "Intro.\nline one￼indented continuation"],
     ["refuses an end inside a soft-wrapped paragraph", "Intro.\n\nline one\nline two\n", (md) => [0, md.indexOf("two")], null],
     ["refuses a word inside a soft-wrapped paragraph", "Alpha line\nbeta line.\n", (md) => [md.indexOf("beta"), md.indexOf("beta") + 4], null],
+    // ...but only the wrapped gap: exactly mapped words beside it stay addressable.
+    ["keeps marked words in a wrapped paragraph", "The **launch** is on\nFriday after review.\n", (md) => [md.indexOf("launch"), md.indexOf("launch") + 6], "launch"],
+    ["keeps link text in a wrapped paragraph", "Start [the docs](u) and\nmore words.\n", (md) => [md.indexOf("the docs"), md.indexOf("the docs") + 8], "the docs"],
+    ["keeps marked words in a wrapped list item", "- item **bold** one\n  continued here\n", (md) => [md.indexOf("bold"), md.indexOf("bold") + 4], "bold"],
+    ["keeps marked words in a wrapped setext heading", "Setext **big**\nwrap\n=====\n", (md) => [md.indexOf("big"), md.indexOf("big") + 3], "big"],
+    ["refuses an end inside the wrapped gap", "The **launch** is on\nFriday after review.\n", (md) => [md.indexOf("launch"), md.indexOf("Friday") + 6], null],
     ["snaps across a CRLF and a BOM", "﻿First line.\r\n\r\nSecond line.\r\n", (md) => [md.indexOf("line."), md.indexOf("Second") + 6], "line.\nSecond"],
   ];
 

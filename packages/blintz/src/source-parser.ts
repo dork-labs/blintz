@@ -102,8 +102,34 @@ export function parseSource(
     if (active) origins.set(node, active);
     push(node);
   };
-  const addText = state.addText;
   const bom = text.startsWith("\uFEFF") ? 1 : 0;
+  const offsets = (node: MarkdownNode | undefined) => {
+    const start = node?.position?.start.offset, end = node?.position?.end.offset;
+    return typeof start === "number" && typeof end === "number" ? { start, end } : undefined;
+  };
+  // Text without an exact source is still tied to the raw node it came from.
+  // A piece a transform rebuilt without a position (line endings split a
+  // paragraph's text) is tied to the gap it fills among its siblings, so the
+  // exactly mapped words around it stay addressable.
+  const looseSpan = (length: number) => {
+    const own = offsets(active);
+    if (own) return { length, rawStart: own.start + bom, rawEnd: own.end + bom };
+    const parent = parents.at(-1), within = offsets(parent);
+    const siblings = parent?.children ?? [];
+    const index = active ? siblings.indexOf(active) : -1;
+    if (!within || index < 0) return { length };
+    let rawStart = within.start, rawEnd = within.end;
+    for (let i = index - 1; i >= 0; i--) {
+      const before = offsets(siblings[i]);
+      if (before) { rawStart = before.end; break; }
+    }
+    for (let i = index + 1; i < siblings.length; i++) {
+      const after = offsets(siblings[i]);
+      if (after) { rawEnd = after.start; break; }
+    }
+    return { length, rawStart: rawStart + bom, rawEnd: rawEnd + bom };
+  };
+  const addText = state.addText;
   state.addText = (value) => {
     const previous = state.top()?.content.at(-1);
     const previousSpans = previous && textOrigins.get(previous);
@@ -119,17 +145,9 @@ export function parseSource(
       typeof start === "number" &&
       typeof end === "number" &&
       text.slice(start + bom, end + bom) === value;
-    // Text without an exact source is still tied to the raw node it came
-    // from, or, for pieces a transform rebuilt without a position (line
-    // endings split a paragraph's text), to the nearest ancestor that has one.
-    const owner = [active, ...parents.slice().reverse()].find(
-      (node) => typeof node?.position?.start.offset === "number" && typeof node.position.end.offset === "number",
-    );
     const span = exact
       ? { length: value.length, start: start! + bom, end: end! + bom }
-      : owner
-        ? { length: value.length, rawStart: owner.position!.start.offset! + bom, rawEnd: owner.position!.end.offset! + bom }
-        : { length: value.length };
+      : looseSpan(value.length);
     textOrigins.set(
       current,
       current.text === value
