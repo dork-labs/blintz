@@ -85,3 +85,14 @@ test("undo brings back a comment whose words were deleted", async ({ page }) => 
   await expect(editor.locator(".blintz-comment")).toHaveText("Marketing");
   await expect(page.getByRole("complementary", { name: "Comments" })).not.toContainText("Its text was removed");
 });
+
+test("select-all and retyping orphans a comment instead of moving it", async ({ page }) => {
+  const { editor } = await open(page);
+  await commentOnWord(page, "Marketing");
+  await expect(editor.locator(".blintz-comment")).toHaveText("Marketing");
+  await editor.locator("p").first().click();
+  await page.keyboard.press("ControlOrMeta+a");
+  await page.keyboard.type("Rewrite. Marketing later.");
+  await expect(page.getByRole("complementary", { name: "Comments" })).toContainText("Its text was removed");
+  await expect(editor.locator(".blintz-comment")).toHaveCount(0);
+});

@@ -40,10 +40,11 @@ export interface BlintzComments {
   anchorSelection(): CommentAnchor | null;
   /**
    * A thread's current document range (`[from, to)`, e.g. for `port.range()`)
-   * and how confidently it was placed: `exact`, `moved`, `ambiguous` (worth
-   * flagging), or `live` once it has followed edits. `null` if orphaned.
+   * and how confidently it was placed: `exact`, `moved`, or `ambiguous`
+   * (worth flagging). The label stays as the thread follows edits. `null` if
+   * orphaned.
    */
-  rangeOf(id: string): { from: number; to: number; match: AnchorMatch | "live" } | null;
+  rangeOf(id: string): { from: number; to: number; match: AnchorMatch } | null;
   /** Threads at the caret, innermost first. */
   threadsAtSelection(): string[];
   /** Select a thread's text and scroll it into view. */

@@ -291,4 +291,60 @@ describe("useBlintzComments", () => {
     await waitFor(() => onAnchorsChange.mock.calls.length === 2, 3000);
     expect(onAnchorsChange.mock.calls[1]![0][0].anchor).toEqual(anchor);
   });
+
+  it("orphans threads when the user replaces everything, even if the words are typed again", async () => {
+    const onOrphanedChange = vi.fn();
+    const el = await mount(DOC, { threads: [] });
+    const anchor = anchorFor("Marketing");
+    await rerender(DOC, { threads: [{ id: "t", anchor }], onOrphanedChange });
+    await waitFor(() => highlighted(el, "t") === "Marketing");
+    const v = view();
+    // Select-all + type: one step over the whole document, like a reset, but
+    // not tagged as one.
+    await act(async () => v.dispatch(v.state.tr.insertText("N", 0, v.state.doc.content.size)));
+    await act(async () => view().dispatch(view().state.tr.insertText("ew plan. Marketing later.", 2)));
+    await waitFor(() => onOrphanedChange.mock.calls.some(([ids]) => ids.includes("t")));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 50)));
+    expect(api!.rangeOf("t")).toBeNull();
+  });
+
+  it("never lets a thread missing on load grab words typed later, and keeps its label", async () => {
+    const el = await mount("Intro.\n\nShip it today.\n", { threads: [] });
+    const anchor = anchorFor("Ship it");
+    await act(async () => root!.unmount());
+    host!.remove();
+    await mount("Intro.\n\nNothing here yet.\n", { threads: [{ id: "t", anchor }] });
+    await waitFor(() => !!editor);
+    expect(api!.rangeOf("t")).toBeNull();
+    await act(async () => view().dispatch(view().state.tr.insertText(" Ship it", 7)));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 50)));
+    expect(api!.rangeOf("t")).toBeNull();
+    void el;
+  });
+
+  it("keeps a placement's confidence label as the thread follows edits", async () => {
+    await mount(DOC, { threads: [] });
+    const anchor = { v: 1 as const, quote: "Friday", prefix: "unrelated context ", suffix: " elsewhere", start: 999, end: 1005 };
+    await rerender(DOC, { threads: [{ id: "g", anchor }] });
+    await waitFor(() => api!.rangeOf("g")?.match === "ambiguous");
+    await act(async () => view().dispatch(view().state.tr.insertText("Note: ", 9)));
+    expect(api!.rangeOf("g")!.match).toBe("ambiguous");
+  });
+
+  it("restores a thread on undo even when its words were deleted right after a nearby edit", async () => {
+    const el = await mount(DOC, { threads: [] });
+    const anchor = anchorFor("Marketing");
+    await rerender(DOC, { threads: [{ id: "t", anchor }] });
+    await waitFor(() => highlighted(el, "t") === "Marketing");
+    const range = api!.rangeOf("t")!;
+    // Edit next to it, then delete the words at once (before any debounce).
+    await act(async () => {
+      view().dispatch(view().state.tr.insertText("next ", range.from));
+      const moved = api!.rangeOf("t")!;
+      view().dispatch(view().state.tr.delete(moved.from, moved.to));
+    });
+    await waitFor(() => api!.rangeOf("t") === null);
+    await act(async () => void undo(view().state, view().dispatch));
+    await waitFor(() => highlighted(el, "t") === "Marketing");
+  });
 });

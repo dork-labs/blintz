@@ -1,6 +1,7 @@
 import type { Node } from "@milkdown/kit/prose/model";
 import { Plugin, PluginKey, type EditorState, type Transaction } from "@milkdown/kit/prose/state";
 import { Decoration, DecorationSet, type EditorView } from "@milkdown/kit/prose/view";
+import { DOCUMENT_RESET_META } from "blintz";
 
 import {
   anchorFromRange,
@@ -21,8 +22,8 @@ export interface CommentThreadRef {
 interface LiveRange {
   from: number;
   to: number;
-  /** How the range was found on load (`"live"` once it has followed edits). */
-  match: AnchorMatch | "live";
+  /** How confidently the thread was placed; kept as it follows edits. */
+  match: AnchorMatch;
 }
 
 /**
@@ -41,6 +42,12 @@ export interface CommentsState {
   anchorKeys: Map<string, string>;
   /** The last anchor each thread was at, to find it again after a reset. */
   lastAnchors: Map<string, CommentAnchor>;
+  /**
+   * For a deleted thread, its words exactly as they were at the deletion.
+   * Undo may restore that text or the older one (history groups quick edits),
+   * so both this and `lastAnchors` are tried.
+   */
+  deletedAnchors: Map<string, CommentAnchor>;
   decorations: DecorationSet;
 }
 
@@ -57,19 +64,21 @@ type Meta = { sync?: CommentsDisplay; remember?: Map<string, CommentAnchor> };
 const anchorKey = (anchor: CommentAnchor) =>
   `${anchor.start}:${anchor.end}:${anchor.prefix}\u0000${anchor.quote}\u0000${anchor.suffix}`;
 
-function locate(
+function locate(doc: Node, anchor: CommentAnchor, model = docText(doc)): LiveRange | null {
+  return locateDetailed(doc, anchor, model);
+}
+
+function locateDetailed(
   doc: Node,
   anchor: CommentAnchor,
   model = docText(doc),
-  strict = false,
-): LiveRange | null {
+): (LiveRange & { context: number; fullContext: number }) | null {
   const found = locateAnchor(model, anchor);
   if (!found) return null;
-  if (strict && found.context < found.fullContext) return null;
   const from = positionAt(model, found.start, "start");
   const to = positionAt(model, found.end, "end");
   if (from === null || to === null || from >= to) return null;
-  return { from, to, match: found.match };
+  return { from, to, match: found.match, context: found.context, fullContext: found.fullContext };
 }
 
 function decorate(doc: Node, state: Omit<CommentsState, "decorations">, display: CommentsDisplay): DecorationSet {
@@ -122,59 +131,78 @@ function sync(previous: CommentsState, doc: Node, display: CommentsDisplay): Com
     if (found) ranges.set(thread.id, found);
     else orphaned.set(thread.id, "missing");
   }
-  const next = { ranges, orphaned, anchorKeys, lastAnchors };
+  const deletedAnchors = new Map(
+    [...previous.deletedAnchors].filter(([id]) => orphaned.get(id) === "deleted"),
+  );
+  const next = { ranges, orphaned, anchorKeys, lastAnchors, deletedAnchors };
   return { ...next, decorations: decorate(doc, next, display) };
 }
 
-/** Whether a transaction replaced the whole document (a host reset). */
-function replacesDocument(tr: Transaction): boolean {
-  return tr.steps.some((step, index) => {
-    const { from, to } = step as unknown as { from?: number; to?: number };
-    const size = tr.docs[index]!.content.size;
-    return from === 0 && to === size && size > 0;
-  });
+/**
+ * Whether the host replaced the document (a new `value`), as Blintz tags it.
+ * Select-all and type looks identical step for step, so the step shape is
+ * never used to decide this.
+ */
+function isHostReset(tr: Transaction): boolean {
+  return tr.getMeta(DOCUMENT_RESET_META) === true;
 }
 
-const MAX_ORPHAN_RETRIES = 100;
+/** A located range is good enough to re-attach a thread during editing. */
+function enoughContext(found: LiveRange & { context: number; fullContext: number }, kind: OrphanKind): boolean {
+  // Deleted words must come back with all their context (undo); a thread
+  // never found needs at least half, so it can't grab freshly typed words.
+  return kind === "deleted" ? found.context === found.fullContext : found.context * 2 >= found.fullContext;
+}
 
 function mapThrough(previous: CommentsState, tr: Transaction, display: CommentsDisplay): CommentsState {
   const ranges = new Map<string, LiveRange>();
   const orphaned = new Map(previous.orphaned);
-  const reset = replacesDocument(tr);
+  const lastAnchors = new Map(previous.lastAnchors);
+  const deletedAnchors = new Map(previous.deletedAnchors);
+  const reset = isHostReset(tr);
   let model: ReturnType<typeof docText> | undefined;
   for (const [id, range] of previous.ranges) {
     // Typing at either edge does not extend a comment.
     const from = tr.mapping.map(range.from, 1);
     const to = tr.mapping.map(range.to, -1);
     if (from < to) {
-      ranges.set(id, { from, to, match: range.match === "live" || !reset ? "live" : range.match });
+      ranges.set(id, { from, to, match: range.match });
       continue;
     }
-    // A host reset replaced everything: find the words in the new document.
-    // Anything else that collapsed a comment deleted its words: orphan it
-    // (never re-attach it to the same words somewhere else).
-    const last = previous.lastAnchors.get(id);
-    model ??= docText(tr.doc);
-    const found = reset && last ? locate(tr.doc, last, model) : null;
-    if (found) ranges.set(id, found);
-    else orphaned.set(id, reset ? "missing" : "deleted");
+    if (reset) {
+      // A different document arrived: find the words in it.
+      const last = lastAnchors.get(id);
+      model ??= docText(tr.doc);
+      const found = last ? locateDetailed(tr.doc, last, model) : null;
+      if (found) ranges.set(id, found);
+      else orphaned.set(id, "missing");
+      continue;
+    }
+    // The user deleted the words. Remember them exactly as they were, with
+    // their context right now, so undo can bring the thread back, and never
+    // re-attach it to the same words elsewhere.
+    const fresh = anchorFromRange(tr.before, range.from, range.to);
+    if (fresh) deletedAnchors.set(id, fresh);
+    orphaned.set(id, "deleted");
   }
-  // Orphans get another chance on every change: a missing one wherever its
-  // anchor now fits (the host's document arrived), a deleted one only where
-  // its full context is back (undo).
-  let tries = 0;
+  // Orphans get another chance on every change: anywhere their anchor fits
+  // after a host reset; during editing only with enough of their context.
   for (const [id, kind] of previous.orphaned) {
-    if (++tries > MAX_ORPHAN_RETRIES) break;
-    const last = previous.lastAnchors.get(id);
-    if (!last) continue;
+    const candidates = [deletedAnchors.get(id), lastAnchors.get(id)].filter(
+      (anchor): anchor is CommentAnchor => anchor !== undefined,
+    );
     model ??= docText(tr.doc);
-    const found = locate(tr.doc, last, model, kind === "deleted" && !reset);
-    if (found) {
-      ranges.set(id, found);
-      orphaned.delete(id);
+    for (const anchor of candidates) {
+      const found = locateDetailed(tr.doc, anchor, model);
+      if (found && (reset || enoughContext(found, kind))) {
+        ranges.set(id, found);
+        orphaned.delete(id);
+        deletedAnchors.delete(id);
+        break;
+      }
     }
   }
-  const next = { ...previous, ranges, orphaned };
+  const next = { ...previous, ranges, orphaned, lastAnchors, deletedAnchors };
   return { ...next, decorations: decorate(tr.doc, next, display) };
 }
 
@@ -194,6 +222,7 @@ const EMPTY: CommentsState = {
   orphaned: new Map(),
   anchorKeys: new Map(),
   lastAnchors: new Map(),
+  deletedAnchors: new Map(),
   decorations: DecorationSet.empty,
 };
 
