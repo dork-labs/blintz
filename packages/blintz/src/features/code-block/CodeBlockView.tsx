@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "../../shared/Icon";
 import { cx } from "../../shared/cx";
 import { useEditorCtx, useEditorEditable } from "../../shared/editor-ctx";
+import { useBlintzTheme } from "../../shared/theme-ctx";
 import { CopyButton } from "./CopyButton";
 import { LanguagePicker } from "./LanguagePicker";
 import { PreviewPanel } from "./PreviewPanel";
@@ -26,6 +27,7 @@ import { LanguageLoader } from "./loader";
  */
 export function CodeBlockView() {
   const { node, view, getPos, setAttrs, selected } = useNodeViewContext();
+  const theme = useBlintzTheme();
   const ctx = useEditorCtx();
   const editable = useEditorEditable(view);
   const config = ctx.get(codeBlockConfig.key);
@@ -102,24 +104,33 @@ export function CodeBlockView() {
   }, [selected]);
 
   // Recompute the preview whenever the text/language changes (Vue's `watch`).
+  // An async render that finishes after the text, language or theme changed
+  // again must not overwrite the newer preview.
   useEffect(() => {
-    const result = config.renderPreview(language, text, (value) =>
-      setPreview(value),
+    let live = true;
+    const result = config.renderPreview(
+      language,
+      text,
+      (value) => {
+        if (live) setPreview(value);
+      },
+      { theme },
     );
     if (result) {
       setPreview(result);
-      return;
-    }
-    // Async render (returned undefined) with nothing applied yet → loading state.
-    if (result === undefined) {
+    } else if (result === undefined) {
+      // Async render with nothing applied yet → loading state.
       setPreview((prev) => prev || config.previewLoading);
-      return;
+    } else {
+      // result === null → no preview.
+      setPreview(null);
     }
-    // result === null → no preview.
-    setPreview(null);
+    return () => {
+      live = false;
+    };
     // config is stable per editor; depend on the inputs that actually change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [language, text]);
+  }, [language, text, theme]);
 
   const setLanguage = (lang: string) => {
     // Write the node attr; the controller's update() reacts to load the CM pack.

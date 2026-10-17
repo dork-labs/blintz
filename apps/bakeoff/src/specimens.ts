@@ -206,6 +206,24 @@ A page that doesn't exist yet: [[Someday Maybe]].
 Type two square brackets to link another page.
 `,
   },
+  diagrams: {
+    label: "Diagrams",
+    markdown: `# How a doc ships
+
+\`\`\`mermaid
+flowchart LR
+  Draft --> Review --> Publish
+  Review -->|changes| Draft
+\`\`\`
+
+A diagram that can't be drawn says why:
+
+\`\`\`mermaid
+flowchart LR
+  A -->
+\`\`\`
+`,
+  },
   empty: { label: "A blank page", markdown: "" },
 } as const;
 

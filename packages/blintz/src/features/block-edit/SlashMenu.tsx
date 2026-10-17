@@ -11,6 +11,7 @@ import {
 import { Icon } from "../../shared/Icon";
 import { useEditorCtx } from "../../shared/editor-ctx";
 import { useEmbedRegistry } from "../embeds/registry";
+import { useMermaidLoader } from "../mermaid/context";
 import { getGroups } from "./menu-config";
 import { menuAPI, slashStoreCtx } from "./slices";
 import type { SlashMenuSnapshot, SlashMenuStore } from "./store";
@@ -45,11 +46,12 @@ export function SlashMenu() {
   );
 
   const embeds = useEmbedRegistry();
-  const embedsRef = useRef(embeds);
-  embedsRef.current = embeds;
+  const diagrams = useMermaidLoader() !== undefined;
+  const menuOptionsRef = useRef({ embeds, diagrams });
+  menuOptionsRef.current = { embeds, diagrams };
   const { groups, size } = useMemo(
-    () => getGroups(filter, embeds),
-    [filter, embeds],
+    () => getGroups(filter, embeds, { diagrams }),
+    [filter, embeds, diagrams],
   );
 
   const [hoverIndex, setHoverIndex] = useState(0);
@@ -92,7 +94,9 @@ export function SlashMenu() {
       // Read the store at activation time as well: React may not have painted
       // the latest filtered menu between a fast final keystroke and Enter.
       const currentFilter = store.getSnapshot().filter;
-      const currentGroups = getGroups(currentFilter, embedsRef.current).groups;
+      const currentGroups = getGroups(currentFilter, menuOptionsRef.current.embeds, {
+        diagrams: menuOptionsRef.current.diagrams,
+      }).groups;
       const activeIndex = currentFilter === filter ? index : 0;
       const item = currentGroups
         .flatMap((group) => group.items)

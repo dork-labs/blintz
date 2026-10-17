@@ -1,5 +1,10 @@
 import { defaultKeymap, indentWithTab } from "@codemirror/commands";
-import { languages } from "@codemirror/language-data";
+import { languages as codemirrorLanguages } from "@codemirror/language-data";
+
+import { mermaidLanguage } from "../mermaid/language";
+
+// Every CodeMirror language, plus Mermaid so the picker can make a diagram.
+const languages = [...codemirrorLanguages, mermaidLanguage];
 import type { Extension } from "@codemirror/state";
 import { codeTheme } from "./theme";
 import { keymap } from "@codemirror/view";

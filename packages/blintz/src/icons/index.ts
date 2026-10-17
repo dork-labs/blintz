@@ -78,3 +78,6 @@ export { SquareFunction as functionsIcon } from "lucide-static";
 
 // embeds: the slash-menu fallback for a registered embed without its own icon
 export { Blocks as embedIcon } from "lucide-static";
+
+// mermaid: the slash-menu Diagram item
+export { Workflow as diagramIcon } from "lucide-static";

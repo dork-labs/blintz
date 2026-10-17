@@ -30,15 +30,16 @@ export interface CodeBlockConfig {
   onCopy?: (text: string) => void;
   renderLanguage: (language: string, selected: boolean) => string;
   /**
-   * Optional preview renderer (Mermaid/KaTeX/etc). Returns sync HTML/Element, or
-   * `undefined` to signal an async render that calls `applyPreview` later, or
-   * `null` for "no preview". v1 defaults to `() => null` (no renderer shipped);
-   * the panel plumbing works the moment a renderer is configured.
+   * Preview renderer (KaTeX for LaTeX, mermaid for diagrams). Returns sync
+   * HTML/Element, or `undefined` to signal an async render that calls
+   * `applyPreview` later, or `null` for "no preview". `options.theme` is the
+   * editor's current palette; the preview re-renders when it changes.
    */
   renderPreview: (
     language: string,
     content: string,
     applyPreview: (value: null | string | HTMLElement) => void,
+    options?: { theme: "light" | "dark" },
   ) => void | null | string | HTMLElement;
   previewToggleButton: (previewOnlyMode: boolean) => string;
   previewLabel: string;

@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import { MarkdownEditor } from "blintz";
 import { SAMPLE_EMBEDS } from "./embeds";
 import { SAMPLE_WIKI_LINKS } from "./wiki-links";
+
+// Diagrams load mermaid only when a document has one.
+const loadMermaid = () => import("mermaid");
 import { SPECIMENS, type SpecimenId } from "./specimens";
 import "./playground.css";
 
@@ -110,6 +113,7 @@ export default function Playground() {
               editable={editable}
               embeds={SAMPLE_EMBEDS}
               wikiLinks={SAMPLE_WIKI_LINKS}
+              mermaid={loadMermaid}
             />
           </section>
           {source && (

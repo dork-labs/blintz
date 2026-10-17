@@ -135,11 +135,12 @@ export function latexFeature(
           language: string,
           content: string,
           applyPreview: (value: null | string | HTMLElement) => void,
+          options?: { theme: "light" | "dark" },
         ) => {
           if (language.toLowerCase() === "latex" && content.length > 0) {
             return renderLatexPreview(content);
           }
-          return prev.renderPreview(language, content, applyPreview);
+          return prev.renderPreview(language, content, applyPreview, options);
         },
       }));
 

@@ -10,6 +10,9 @@ import {
 import { EditorCtxProvider } from "./shared/editor-ctx";
 import { EmbedRegistryProvider, type EmbedRegistry } from "./features/embeds/registry";
 import { WikiLinkProvider, type WikiLinkOptions } from "./features/wiki-links/options";
+import type { MermaidLoader } from "./features/mermaid";
+import { MermaidProvider } from "./features/mermaid/context";
+import { BlintzThemeProvider } from "./shared/theme-ctx";
 import type { CtxHolder } from "./shared/editor-ctx";
 import { cx } from "./shared/cx";
 import type { SourceCallbacks } from "./source-controller";
@@ -68,6 +71,13 @@ export interface MarkdownEditorProps extends SourceCallbacks {
    * markdown always keeps what the author typed. Reactive: no remount.
    */
   wikiLinks?: WikiLinkOptions;
+  /**
+   * Draw ` ```mermaid ` code blocks as diagrams: pass a loader such as
+   * `() => import("mermaid")` (mermaid 10 or later). It is called the first
+   * time a diagram needs drawing, so documents without diagrams never load
+   * mermaid. Without it, mermaid blocks stay ordinary code blocks.
+   */
+  mermaid?: MermaidLoader;
 }
 
 const NO_EMBEDS: EmbedRegistry = {};
@@ -92,6 +102,7 @@ export function MarkdownEditor({
   plugins,
   embeds = NO_EMBEDS,
   wikiLinks,
+  mermaid,
   sourceRevision,
   onSourceReady,
   onSourceSelection,
@@ -143,33 +154,40 @@ export function MarkdownEditor({
     };
   }, [theme]);
 
+  const effectiveTheme = theme === "auto" ? resolvedTheme : theme;
+
   return (
     <div
       ref={hostRef}
       className={cx("milkdown-editor-host", className)}
-      data-blintz-theme={theme === "auto" ? resolvedTheme : theme}
+      data-blintz-theme={effectiveTheme}
     >
       <EditorCtxProvider value={ctxHolder}>
-        <EmbedRegistryProvider value={embeds}>
-        <WikiLinkProvider options={wikiLinks}>
-          <MilkdownProvider>
-            <ProsemirrorAdapterProvider>
-              <EditorInner
-                value={value}
-                editable={editable}
-                onChange={onChange}
-                placeholder={placeholder}
-                ctxHolder={ctxHolder}
-                plugins={plugins}
-                sourceRevision={sourceRevision}
-                onSourceReady={onSourceReady}
-                onSourceSelection={onSourceSelection}
-                onTaskToggleRequest={onTaskToggleRequest}
-              />
-            </ProsemirrorAdapterProvider>
-          </MilkdownProvider>
-        </WikiLinkProvider>
-        </EmbedRegistryProvider>
+        <BlintzThemeProvider value={effectiveTheme}>
+          <EmbedRegistryProvider value={embeds}>
+            <WikiLinkProvider options={wikiLinks}>
+              <MermaidProvider value={mermaid}>
+                <MilkdownProvider>
+                  <ProsemirrorAdapterProvider>
+                    <EditorInner
+                      value={value}
+                      editable={editable}
+                      onChange={onChange}
+                      placeholder={placeholder}
+                      ctxHolder={ctxHolder}
+                      plugins={plugins}
+                      mermaid={mermaid}
+                      sourceRevision={sourceRevision}
+                      onSourceReady={onSourceReady}
+                      onSourceSelection={onSourceSelection}
+                      onTaskToggleRequest={onTaskToggleRequest}
+                    />
+                  </ProsemirrorAdapterProvider>
+                </MilkdownProvider>
+              </MermaidProvider>
+            </WikiLinkProvider>
+          </EmbedRegistryProvider>
+        </BlintzThemeProvider>
       </EditorCtxProvider>
     </div>
   );
@@ -183,6 +201,7 @@ interface EditorInnerProps extends SourceCallbacks {
   placeholder?: string;
   ctxHolder: CtxHolder;
   plugins?: BlintzPlugin[];
+  mermaid?: MermaidLoader;
 }
 
 function EditorInner({
@@ -192,6 +211,7 @@ function EditorInner({
   placeholder,
   ctxHolder,
   plugins,
+  mermaid,
   sourceRevision,
   onSourceReady,
   onSourceSelection,
@@ -211,6 +231,7 @@ function EditorInner({
     pluginViewFactory,
     ctxHolder,
     plugins,
+    mermaid,
     sourceRevision,
     onSourceReady,
     onSourceSelection,

@@ -2,7 +2,7 @@
   "name": "blintz",
   "version": "0.7.2",
   "type": "module",
-  "description": "Blintz — a Vue-free React port of Milkdown's Crepe editor: the polished WYSIWYG markdown UX (slash menu, block drag handle, selection toolbar, rich node views) rebuilt as React components, with clean markdown round-tripping.",
+  "description": "Blintz \u2014 a Vue-free React port of Milkdown's Crepe editor: the polished WYSIWYG markdown UX (slash menu, block drag handle, selection toolbar, rich node views) rebuilt as React components, with clean markdown round-tripping.",
   "keywords": [
     "markdown",
     "markdown-editor",
@@ -59,7 +59,8 @@
   },
   "peerDependencies": {
     "react": ">=18",
-    "react-dom": ">=18"
+    "react-dom": ">=18",
+    "mermaid": ">=10"
   },
   "dependencies": {
     "@codemirror/commands": "^6.11.0",
@@ -97,5 +98,10 @@
     "typescript": "^5.9.0",
     "vite": "^7.3.6",
     "vite-plugin-dts": "^4.5.4"
+  },
+  "peerDependenciesMeta": {
+    "mermaid": {
+      "optional": true
+    }
   }
 }
