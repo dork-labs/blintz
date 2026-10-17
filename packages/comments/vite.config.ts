@@ -9,7 +9,14 @@ import dts from "vite-plugin-dts";
 export default defineConfig({
   plugins: [
     react(),
-    dts({ include: ["src"], exclude: ["src/**/*.test.ts"] }),
+    // `paths` maps "blintz" to its source for typechecking in the monorepo;
+    // declarations must keep the bare "blintz" import and land in dist/.
+    dts({
+      include: ["src"],
+      exclude: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+      entryRoot: "src",
+      pathsToAliases: false,
+    }),
   ],
   build: {
     lib: {

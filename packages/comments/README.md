@@ -32,9 +32,9 @@ function Doc({ md, setMd, threads, store }) {
 A thread's `anchor` is opaque to your store: save it as JSON and hand it back. It is a [W3C text-quote selector](https://www.w3.org/TR/annotation-model/#text-quote-selector): the quoted words, a little text before and after them, and the position they were at.
 
 - **While the document is open,** a thread follows its words through every edit. Typing at either edge doesn't extend it.
-- **When the document opens,** each thread finds its words again. It prefers the occurrence with the most matching context, then the one nearest the old position. Edits elsewhere don't matter.
+- **When the document opens,** each thread finds its words again. It prefers the occurrence with the most matching context, then the one nearest the old position. Edits elsewhere don't matter. `rangeOf(id).match` says how sure that was. `ambiguous` means another occurrence fit as well, or little of the context survived; that's worth flagging in your UI.
 - **`onAnchorsChange`** sends fresh anchors shortly after editing pauses. Save them, so tomorrow's document finds today's text.
-- **A thread whose words were deleted or can't be found is orphaned.** `onOrphanedChange` lists those threads. Keep them and show them apart; a lost comment is worse than a homeless one. Handing over a different anchor for an orphaned thread tries again.
+- **A thread whose words were deleted or can't be found is orphaned.** `onOrphanedChange` lists those threads. Keep them and show them apart; a lost comment is worse than a homeless one. A deleted thread never jumps to the same words elsewhere. It comes back if its words do, with their context (undo, say). A thread that wasn't found keeps being looked for as the document changes, for example once a newly opened document arrives. Handing over a different anchor tries again too.
 
 Comments never change the document: no marks, no markdown, no history entries. The editor's source mapping (`onSourceReady`) keeps working, and `port.range(...comments.rangeOf(id))` gives a thread's exact span in the raw markdown, so an agent can quote or address it.
 
@@ -46,7 +46,7 @@ Comments never change the document: no marks, no markdown, no history entries. T
 | --- | --- |
 | `plugin` | Pass in `<MarkdownEditor plugins={[comments.plugin]}>`. Stable across renders. |
 | `anchorSelection()` | Returns an anchor for the current selection, to create a thread. Returns `null` if the selection covers no text. |
-| `rangeOf(id)` | Returns a thread's current `{ from, to }` in the editor, or `null` if it's orphaned. |
+| `rangeOf(id)` | Returns a thread's current `{ from, to, match }` in the editor, or `null` if it's orphaned. |
 | `threadsAtSelection()` | Lists the threads at the caret, innermost first. |
 | `reveal(id)` | Selects a thread's text and scrolls to it. |
 
@@ -60,5 +60,7 @@ Options:
 | `onThreadClick(ids)` | Called when someone clicks highlighted text, with every thread under the click, innermost first. |
 | `onAnchorsChange(updates)` | Called with fresh anchors to save. |
 | `onOrphanedChange(ids)` | Called when the set of orphaned threads changes. |
+
+One hook serves one editor; give each editor its own `useBlintzComments`.
 
 Highlights are styled by `.blintz-comment`, `.is-active` and `.is-resolved` in `styles.css`.

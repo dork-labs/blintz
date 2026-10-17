@@ -95,8 +95,12 @@ export function positionAt(model: DocText, offset: number, side: "start" | "end"
 
 /** The anchor for a document range, or `null` when it covers no text. */
 export function anchorFromRange(doc: Node, from: number, to: number, model = docText(doc)): CommentAnchor | null {
-  const start = offsetAt(model, from);
-  const end = offsetAt(model, to);
+  let start = offsetAt(model, from);
+  let end = offsetAt(model, to);
+  // A selection that runs to (or from) a block edge (a triple-click) picks up
+  // the line break between blocks; the comment is on the words, not on it.
+  while (start < end && model.text[start] === "\n") start++;
+  while (end > start && model.text[end - 1] === "\n") end--;
   const quote = model.text.slice(start, end);
   if (quote.replace(/[\n￼\s]/g, "").length === 0) return null;
   return {
@@ -121,10 +125,12 @@ function commonPrefix(a: string, b: string): number {
   return n;
 }
 
-/** How a located anchor matched. */
+/**
+ * How a located anchor matched: `exact` (same place, same context), `moved`
+ * (found elsewhere with the best context), or `ambiguous` (low confidence:
+ * another occurrence fits as well, or under a quarter of its context survives).
+ */
 export type AnchorMatch = "exact" | "moved" | "ambiguous";
-
-const MAX_CANDIDATES = 500;
 
 /**
  * Find an anchor's text again. Every occurrence of the quote is scored by how
@@ -135,30 +141,42 @@ const MAX_CANDIDATES = 500;
 export function locateAnchor(
   model: DocText,
   anchor: CommentAnchor,
-): { start: number; end: number; match: AnchorMatch } | null {
+): { start: number; end: number; match: AnchorMatch; context: number; fullContext: number } | null {
   const { quote } = anchor;
   if (!quote) return null;
   const { text } = model;
-  const candidates: Array<{ start: number; context: number; distance: number }> = [];
-  for (let at = text.indexOf(quote); at !== -1 && candidates.length < MAX_CANDIDATES; at = text.indexOf(quote, at + 1)) {
+  type Candidate = { start: number; context: number; distance: number };
+  // Every occurrence is scored, keeping only the best two: no cap, so a
+  // comment late in a long document can't lose to an earlier occurrence.
+  const better = (a: Candidate, b: Candidate | undefined) =>
+    !b || a.context > b.context || (a.context === b.context && a.distance < b.distance);
+  let best: Candidate | undefined;
+  let runnerUp: Candidate | undefined;
+  for (let at = text.indexOf(quote); at !== -1; at = text.indexOf(quote, at + 1)) {
     const before = text.slice(Math.max(0, at - anchor.prefix.length), at);
     const after = text.slice(at + quote.length, at + quote.length + anchor.suffix.length);
-    candidates.push({
+    const candidate = {
       start: at,
       context: commonSuffix(before, anchor.prefix) + commonPrefix(after, anchor.suffix),
       distance: Math.abs(at - anchor.start),
-    });
+    };
+    if (better(candidate, best)) {
+      runnerUp = best;
+      best = candidate;
+    } else if (better(candidate, runnerUp)) runnerUp = candidate;
   }
-  if (candidates.length === 0) return null;
-  // Most surrounding context first; the nearest to the old position on a tie.
-  candidates.sort((a, b) => b.context - a.context || a.distance - b.distance);
-  const [best, runnerUp] = candidates as [(typeof candidates)[number], (typeof candidates)[number] | undefined];
+  if (!best) return null;
   const fullContext = anchor.prefix.length + anchor.suffix.length;
   const exact = best.start === anchor.start && best.context === fullContext;
-  const ambiguous = !exact && runnerUp !== undefined && runnerUp.context === best.context;
+  // Low confidence: another occurrence fits as well, or less than a quarter
+  // of the stored context survives around it.
+  const ambiguous =
+    !exact && ((runnerUp !== undefined && runnerUp.context === best.context) || best.context * 4 < fullContext);
   return {
     start: best.start,
     end: best.start + quote.length,
     match: exact ? "exact" : ambiguous ? "ambiguous" : "moved",
+    context: best.context,
+    fullContext,
   };
 }

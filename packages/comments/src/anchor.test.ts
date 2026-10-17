@@ -86,4 +86,16 @@ describe("anchors", () => {
     const doc = await docOf("One.\n\nTwo.\n");
     expect(anchorFromRange(doc, 5, 6)).toBeNull();
   });
+
+  it("finds the right occurrence past hundreds of earlier ones", async () => {
+    const paragraphs = Array.from({ length: 700 }, (_, i) => `Paragraph ${i} has the word in it.`);
+    const doc = await docOf(paragraphs.join("\n\n") + "\n");
+    const target = "Paragraph 650 has the";
+    const model = docText(doc);
+    const at = model.text.indexOf(target) + "Paragraph 650 has ".length;
+    const anchor = anchorFromRange(doc, positionAt(model, at, "start")!, positionAt(model, at + 3, "end")!)!;
+    const found = locateAnchor(model, anchor)!;
+    expect(found.start).toBe(at);
+    expect(found.match).toBe("exact");
+  });
 });

@@ -64,3 +64,24 @@ test("deleting a comment's words marks it as orphaned, not lost", async ({ page 
   await expect(editor.locator(".blintz-comment")).toHaveCount(0);
   await expect(page.getByRole("complementary", { name: "Comments" })).toContainText("Its text was removed");
 });
+
+test("a triple-clicked paragraph can be commented on", async ({ page }) => {
+  const { editor } = await open(page);
+  await editor.locator("p").first().click({ clickCount: 3 });
+  await page.getByRole("button", { name: "Comment on selection" }).click();
+  await expect(editor.locator(".blintz-comment")).toHaveText(
+    "The launch is on Friday. Marketing is ready, and support has the new macros.",
+  );
+  await expect(page.getByRole("complementary", { name: "Comments" })).not.toContainText("Its text was removed");
+});
+
+test("undo brings back a comment whose words were deleted", async ({ page }) => {
+  const { editor } = await open(page);
+  await commentOnWord(page, "Marketing");
+  await editor.locator(".blintz-comment").dblclick();
+  await page.keyboard.press("Backspace");
+  await expect(editor.locator(".blintz-comment")).toHaveCount(0);
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(editor.locator(".blintz-comment")).toHaveText("Marketing");
+  await expect(page.getByRole("complementary", { name: "Comments" })).not.toContainText("Its text was removed");
+});
