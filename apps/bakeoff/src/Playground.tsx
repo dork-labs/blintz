@@ -5,6 +5,9 @@ import { SAMPLE_WIKI_LINKS } from "./wiki-links";
 import { SPECIMENS, type SpecimenId } from "./specimens";
 import "./playground.css";
 
+// Diagrams load mermaid only when a document has one.
+const loadMermaid = () => import("mermaid");
+
 /** Focused, repeatable visual and interaction specimens using Blintz's public API. */
 export default function Playground() {
   const query = new URLSearchParams(location.search);
@@ -110,6 +113,7 @@ export default function Playground() {
               editable={editable}
               embeds={SAMPLE_EMBEDS}
               wikiLinks={SAMPLE_WIKI_LINKS}
+              mermaid={loadMermaid}
             />
           </section>
           {source && (

@@ -29,6 +29,7 @@ import { blockEditFeature } from "./features/block-edit/plugins";
 import { codeMirrorFeature } from "./features/code-block";
 import { embedsFeature } from "./features/embeds";
 import { wikiLinksFeature } from "./features/wiki-links";
+import { mermaidFeature } from "./features/mermaid";
 import { cursorFeature } from "./features/cursor";
 import { stripEmptyLineBreaks } from "./features/empty-paragraphs";
 import { frontmatterFeature } from "./features/frontmatter";
@@ -198,6 +199,9 @@ export function useBlintzEditor({
     linkTooltipFeature(editor, pluginViewFactory);
     // After codeMirrorFeature: block-math wraps codeBlockConfig's renderPreview.
     latexFeature(editor, pluginViewFactory);
+    // After codeMirrorFeature too: wraps renderPreview for ```mermaid blocks.
+    // The loader itself arrives per render, from context (see CodeBlockView).
+    mermaidFeature(editor);
 
     // Consumer extensions last, so they layer over the built-in features (and
     // can override their config). Each gets the same seam the features use.

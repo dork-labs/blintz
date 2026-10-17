@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Ctx } from "@milkdown/kit/ctx";
 import { Milkdown, MilkdownProvider } from "@milkdown/react";
 import {
@@ -10,6 +10,9 @@ import {
 import { EditorCtxProvider } from "./shared/editor-ctx";
 import { EmbedRegistryProvider, type EmbedRegistry } from "./features/embeds/registry";
 import { WikiLinkProvider, type WikiLinkOptions } from "./features/wiki-links/options";
+import type { MermaidLoader } from "./features/mermaid";
+import { MermaidProvider } from "./features/mermaid/context";
+import { BlintzThemeProvider } from "./shared/theme-ctx";
 import type { CtxHolder } from "./shared/editor-ctx";
 import { cx } from "./shared/cx";
 import type { SourceCallbacks } from "./source-controller";
@@ -68,6 +71,15 @@ export interface MarkdownEditorProps extends SourceCallbacks {
    * markdown always keeps what the author typed. Reactive: no remount.
    */
   wikiLinks?: WikiLinkOptions;
+  /**
+   * Draw ` ```mermaid ` code blocks as diagrams: pass a loader such as
+   * `() => import("mermaid")` (mermaid 10 or later). It is called the first
+   * time a diagram needs drawing, so documents without diagrams never load
+   * mermaid. Without it, mermaid blocks stay ordinary code blocks. It may be
+   * an inline function; once mermaid has loaded, the editor keeps that copy
+   * (a different loader passed later is not called).
+   */
+  mermaid?: MermaidLoader;
 }
 
 const NO_EMBEDS: EmbedRegistry = {};
@@ -92,6 +104,7 @@ export function MarkdownEditor({
   plugins,
   embeds = NO_EMBEDS,
   wikiLinks,
+  mermaid,
   sourceRevision,
   onSourceReady,
   onSourceSelection,
@@ -143,33 +156,49 @@ export function MarkdownEditor({
     };
   }, [theme]);
 
+  const effectiveTheme = theme === "auto" ? resolvedTheme : theme;
+
+  // Hosts often pass the loader inline (a new function each render). Diagrams
+  // only need to know whether one exists; a stable wrapper calls the latest,
+  // so host re-renders never re-draw them.
+  const mermaidRef = useRef(mermaid);
+  useLayoutEffect(() => {
+    mermaidRef.current = mermaid;
+  }, [mermaid]);
+  const stableMermaid = useCallback<MermaidLoader>(() => mermaidRef.current!(), []);
+  const mermaidLoader = mermaid ? stableMermaid : undefined;
+
   return (
     <div
       ref={hostRef}
       className={cx("milkdown-editor-host", className)}
-      data-blintz-theme={theme === "auto" ? resolvedTheme : theme}
+      data-blintz-theme={effectiveTheme}
     >
       <EditorCtxProvider value={ctxHolder}>
-        <EmbedRegistryProvider value={embeds}>
-        <WikiLinkProvider options={wikiLinks}>
-          <MilkdownProvider>
-            <ProsemirrorAdapterProvider>
-              <EditorInner
-                value={value}
-                editable={editable}
-                onChange={onChange}
-                placeholder={placeholder}
-                ctxHolder={ctxHolder}
-                plugins={plugins}
-                sourceRevision={sourceRevision}
-                onSourceReady={onSourceReady}
-                onSourceSelection={onSourceSelection}
-                onTaskToggleRequest={onTaskToggleRequest}
-              />
-            </ProsemirrorAdapterProvider>
-          </MilkdownProvider>
-        </WikiLinkProvider>
-        </EmbedRegistryProvider>
+        <BlintzThemeProvider value={effectiveTheme}>
+          <EmbedRegistryProvider value={embeds}>
+            <WikiLinkProvider options={wikiLinks}>
+              <MermaidProvider value={mermaidLoader}>
+                <MilkdownProvider>
+                  <ProsemirrorAdapterProvider>
+                    <EditorInner
+                      value={value}
+                      editable={editable}
+                      onChange={onChange}
+                      placeholder={placeholder}
+                      ctxHolder={ctxHolder}
+                      plugins={plugins}
+                        sourceRevision={sourceRevision}
+                      onSourceReady={onSourceReady}
+                      onSourceSelection={onSourceSelection}
+                      onTaskToggleRequest={onTaskToggleRequest}
+                    />
+                  </ProsemirrorAdapterProvider>
+                </MilkdownProvider>
+              </MermaidProvider>
+            </WikiLinkProvider>
+          </EmbedRegistryProvider>
+        </BlintzThemeProvider>
       </EditorCtxProvider>
     </div>
   );

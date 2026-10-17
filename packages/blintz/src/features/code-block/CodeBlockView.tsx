@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "../../shared/Icon";
 import { cx } from "../../shared/cx";
 import { useEditorCtx, useEditorEditable } from "../../shared/editor-ctx";
+import { useBlintzTheme } from "../../shared/theme-ctx";
+import { useMermaidLoader } from "../mermaid/context";
 import { CopyButton } from "./CopyButton";
 import { LanguagePicker } from "./LanguagePicker";
 import { PreviewPanel } from "./PreviewPanel";
@@ -26,6 +28,10 @@ import { LanguageLoader } from "./loader";
  */
 export function CodeBlockView() {
   const { node, view, getPos, setAttrs, selected } = useNodeViewContext();
+  const theme = useBlintzTheme();
+  const mermaid = useMermaidLoader();
+  const rendered = useRef(false);
+  const previewLanguage = useRef<string | null>(null);
   const ctx = useEditorCtx();
   const editable = useEditorEditable(view);
   const config = ctx.get(codeBlockConfig.key);
@@ -102,24 +108,40 @@ export function CodeBlockView() {
   }, [selected]);
 
   // Recompute the preview whenever the text/language changes (Vue's `watch`).
+  // An async render that finishes after the text, language or theme changed
+  // again must not overwrite the newer preview.
   useEffect(() => {
-    const result = config.renderPreview(language, text, (value) =>
-      setPreview(value),
+    let live = true;
+    const controller = new AbortController();
+    const immediate = !rendered.current;
+    rendered.current = true;
+    const result = config.renderPreview(
+      language,
+      text,
+      (value) => {
+        if (live) setPreview(value);
+      },
+      { theme, signal: controller.signal, immediate, mermaid },
     );
     if (result) {
       setPreview(result);
-      return;
+    } else if (result === undefined) {
+      // Async render: keep the last preview while it re-draws, unless the
+      // language changed (a KaTeX preview under a mermaid block is wrong).
+      const switched = previewLanguage.current !== null && previewLanguage.current !== language;
+      setPreview((prev) => (switched ? config.previewLoading : prev || config.previewLoading));
+    } else {
+      // result === null → no preview.
+      setPreview(null);
     }
-    // Async render (returned undefined) with nothing applied yet → loading state.
-    if (result === undefined) {
-      setPreview((prev) => prev || config.previewLoading);
-      return;
-    }
-    // result === null → no preview.
-    setPreview(null);
+    previewLanguage.current = language;
+    return () => {
+      live = false;
+      controller.abort();
+    };
     // config is stable per editor; depend on the inputs that actually change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [language, text]);
+  }, [language, text, theme, mermaid]);
 
   const setLanguage = (lang: string) => {
     // Write the node attr; the controller's update() reacts to load the CM pack.

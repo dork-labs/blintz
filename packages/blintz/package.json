@@ -59,7 +59,8 @@
   },
   "peerDependencies": {
     "react": ">=18",
-    "react-dom": ">=18"
+    "react-dom": ">=18",
+    "mermaid": ">=10"
   },
   "dependencies": {
     "@codemirror/commands": "^6.11.0",
@@ -97,5 +98,10 @@
     "typescript": "^5.9.0",
     "vite": "^7.3.6",
     "vite-plugin-dts": "^4.5.4"
+  },
+  "peerDependenciesMeta": {
+    "mermaid": {
+      "optional": true
+    }
   }
 }

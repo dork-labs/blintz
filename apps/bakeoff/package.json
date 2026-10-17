@@ -19,6 +19,7 @@
     "@milkdown/react": "^7.22.1",
     "@prosemirror-adapter/react": "0.5.5",
     "@uiw/react-md-editor": "4.1.1",
+    "mermaid": "^11.17.2",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-markdown": "10.1.0",

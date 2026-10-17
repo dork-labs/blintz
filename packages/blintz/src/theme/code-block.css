@@ -340,6 +340,26 @@
       .preview {
         text-align: center;
         overflow-x: auto;
+
+        /* Diagrams scale down to the page; mermaid sets a fixed max-width. */
+        svg {
+          max-width: 100%;
+          height: auto;
+        }
+      }
+
+      .blintz-diagram-error {
+        text-align: start;
+        padding: 8px 12px;
+        border: 1px solid var(--crepe-color-error);
+        border-radius: 6px;
+        color: var(--crepe-color-on-surface-variant);
+        font-size: 13px;
+        white-space: pre-wrap;
+
+        strong {
+          color: var(--crepe-color-error);
+        }
       }
     }
   }

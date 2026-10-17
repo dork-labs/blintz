@@ -18,6 +18,7 @@ import { createTable } from "@milkdown/kit/preset/gfm";
 
 import { imageBlockSchema } from "../image-block/schema";
 import type { EmbedRegistry } from "../embeds/registry";
+import { STARTER_DIAGRAM } from "../mermaid/language";
 import { isDirectiveName } from "../embeds/grammar";
 import {
   cleanAttributes,
@@ -28,6 +29,7 @@ import { GroupBuilder, type MenuItemGroup } from "../../shared/group-builder";
 import {
   bulletListIcon,
   codeIcon,
+  diagramIcon,
   dividerIcon,
   embedIcon,
   functionsIcon,
@@ -67,7 +69,11 @@ export type SlashMenuItem = {
  * After building, items get a flat `index` and groups a `[start, end)` `range`
  * (used by keyboard nav) — assigned by mutation, same as Crepe.
  */
-export function getGroups(filter: string, embeds: EmbedRegistry = {}) {
+export function getGroups(
+  filter: string,
+  embeds: EmbedRegistry = {},
+  { diagrams = false }: { diagrams?: boolean } = {},
+) {
   const groupBuilder = new GroupBuilder<SlashMenuItem>();
 
   const textGroup = groupBuilder.addGroup("text", "Text");
@@ -216,6 +222,23 @@ export function getGroups(filter: string, embeds: EmbedRegistry = {}) {
       });
     },
   });
+
+  // Diagram (mermaid): only when the host passed a mermaid loader, since
+  // without one the block would stay plain code.
+  if (diagrams) {
+    advancedGroup.addItem("diagram", {
+      label: "Diagram",
+      icon: diagramIcon,
+      onRun: (ctx) => {
+        const commands = ctx.get(commandsCtx);
+        const codeBlock = codeBlockSchema.type(ctx);
+        commands.call(clearTextInCurrentBlockCommand.key);
+        commands.call(addBlockTypeCommand.key, {
+          nodeType: codeBlock.create({ language: "mermaid" }, codeBlock.schema.text(STARTER_DIAGRAM)),
+        });
+      },
+    });
+  }
 
   // Host-registered embeds (the `embeds` prop), in registration order. A name
   // the directive grammar cannot write back (`a b`, `""`) is never offered.

@@ -19,7 +19,7 @@ function Example() {
 }
 ```
 
-The whole public surface is one controlled `<MarkdownEditor value onChange />` component, plus `editable`, `placeholder`, `theme`, `className`, `embeds`, `wikiLinks` and `plugins`. The Milkdown engine, the Crepe-derived feature views, and the theme CSS sit behind it.
+The whole public surface is one controlled `<MarkdownEditor value onChange />` component, plus `editable`, `placeholder`, `theme`, `className`, `embeds`, `wikiLinks`, `mermaid` and `plugins`. The Milkdown engine, the Crepe-derived feature views, and the theme CSS sit behind it.
 
 ## Read-only mode
 
@@ -127,6 +127,20 @@ When writing markdown, `remarkBlockDirectives` wraps the paragraph handler so te
 
 Parsing is exact: `[[a#b|c]]` reads as target `a`, heading `b`, label `c` (split at the first `|`, then the first `#`) and writes back unchanged. Inside a table, a label's pipe is written `\|` (`[[a\|c]]`, as Obsidian does), and that form reads the same anywhere. Commonmark keeps its meaning where it has one: `[[a]](url)`, and `[[a]][ref]` with `ref` defined, stay ordinary links; `[[a]]` stays a reference link when the document defines `[a]:`; `\[\[a]]` stays text. A link can't sit inside a code span: applying code formatting over one splits the span around it. `remarkWikiLinks` from `blintz/markdown` is the same grammar for servers.
 
+## Diagrams
+
+Pass a mermaid loader and ` ```mermaid ` code blocks are drawn as diagrams under their source:
+
+```tsx
+<MarkdownEditor value={md} onChange={setMd} mermaid={() => import("mermaid")} />
+```
+
+- `mermaid` is an optional peer dependency (version 10 or later); install it in your app. Blintz calls the loader the first time a diagram needs drawing, so documents without diagrams never load it, and your app can share the same copy: Blintz draws with your mermaid settings (its own are `securityLevel` and `theme`, and theme colours come from the editor's palette rather than your `themeVariables`) and puts them back after each diagram. The loader can be an inline function; re-rendering your component won't re-draw diagrams.
+- Diagrams follow the editor's light or dark theme and re-draw when it changes, and when you pause typing. Rendering is strict (`securityLevel: "strict"`), the SVG is sanitized before it's shown, and a link in a diagram opens in a new tab. A load or a drawing that hangs is given up on after a few seconds, so it never holds up other diagrams.
+- A diagram with a syntax error shows the error instead.
+- The slash menu gains a **Diagram** item, and the language picker a `mermaid` entry, so any code block can become a diagram.
+- Without `mermaid`, these blocks stay ordinary code blocks; passing or removing it later updates them in place. Either way the markdown is unchanged.
+
 ## Why Blintz
 
 Milkdown's [Crepe](https://milkdown.dev) is its ready-made editor on top of ProseMirror. Crepe builds its UI (toolbars, menus, node views) in Vue, so dropping it into a React app means bundling and bridging a second framework. Blintz gives you the same editing experience in React, and it treats markdown as the source of truth, so what you type comes back as clean markdown when you save (handy when you store the markdown).
@@ -145,6 +159,7 @@ It works at the seam Milkdown itself draws. The engine is framework-agnostic: Pr
 - Block editing: a slash `/` command menu and a floating `+`/`::` block handle. Drag-to-reorder keeps list items in the right list and renumbers them.
 - Lists: ordered, bullet, and task lists with live numbering.
 - Code blocks: a real CodeMirror editor per block, with a language picker and a preview.
+- Diagrams: ` ```mermaid ` blocks drawn with your copy of mermaid, loaded only when needed (see [Diagrams](#diagrams)).
 - Math: inline `$…$` and block math via KaTeX, round-tripping to `$$…$$`.
 - Images: uploader or URL input, with captions.
 - Tables: GFM tables with column and row drag handles, plus a keyboard and touch menu to add, move or delete rows and columns.

@@ -26,6 +26,9 @@ export {
   remarkBlockDirectives,
   validateEmbedAttributes,
 } from "./directives";
+// Diagrams: ```mermaid code blocks drawn through a host-provided loader.
+export type { MermaidLoader, MermaidModule } from "./features/mermaid";
+
 // Wiki links: `[[target#heading|label]]` resolved and suggested by the host.
 export type {
   WikiLinkOptions,
