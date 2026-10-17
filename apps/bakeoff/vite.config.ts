@@ -28,11 +28,12 @@ export default defineConfig({
         find: "blintz/styles.css",
         replacement: `${editorSrc}/theme/index.css`,
       },
+      { find: /^blintz\/collab$/, replacement: `${editorSrc}/collab.ts` },
       { find: /^blintz$/, replacement: `${editorSrc}/index.ts` },
       { find: /^@blintz\/comments$/, replacement: `${commentsSrc}/index.ts` },
     ],
     // React is the one dep used by BOTH this app (React 19) and the package
     // (resolved from the monorepo). Force a single copy or hooks/context break.
-    dedupe: ["react", "react-dom"],
+    dedupe: ["react", "react-dom", "yjs", "y-prosemirror", "y-protocols"],
   },
 });

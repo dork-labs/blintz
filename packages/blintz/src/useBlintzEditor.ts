@@ -4,6 +4,7 @@ import {
   defaultValueCtx,
   editorViewCtx,
   parserCtx,
+  serializerCtx,
   editorViewOptionsCtx,
   rootCtx,
 } from "@milkdown/kit/core";
@@ -24,6 +25,7 @@ import type {
 import type { CtxHolder } from "./shared/editor-ctx";
 import type { BlintzPlugin } from "./plugin";
 import { DOCUMENT_RESET_META } from "./document-reset";
+import { remoteChangesPlugin } from "./remote-changes";
 import { SourceController, type SourceCallbacks } from "./source-controller";
 import { sourceEditorAssembly } from "./source-plugin";
 import { DEFAULT_EDITABLE, editablePredicate } from "./read-only";
@@ -172,11 +174,24 @@ export function useBlintzEditor({
       )
       .use(stripEmptyLineBreaks)
       .use(gfm)
-      .use(history)
+      // A plugin with its own undo (collaboration) replaces the built-in one.
+      .use((pluginsRef.current ?? []).some((plugin) => plugin.replacesHistory) ? [] : history)
       .use(indent)
       .use(clipboard)
       .use(upload)
       .use(listener);
+
+    // Collaborators' changes arrive as transactions Milkdown's listener skips
+    // (`addToHistory: false`); report them through `onChange` too, so the
+    // host's saved markdown follows the shared document.
+    editor.use(
+      remoteChangesPlugin((ctx) => {
+        const md = ctx.get(serializerCtx)(ctx.get(editorViewCtx).state.doc);
+        if (md === editorValueRef.current) return;
+        editorValueRef.current = md;
+        onChangeRef.current?.(md);
+      }),
+    );
 
     // Features (share the engine above; each registers its own views/plugins).
     // frontmatter first: pure grammar (remark + schema), nothing depends on it.

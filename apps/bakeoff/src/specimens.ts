@@ -233,6 +233,7 @@ The launch is on Friday. Marketing is ready, and support has the new macros.
 Select some words, then use **Comment on selection**. Comments stay out of the markdown: open the Markdown panel and check.
 `,
   },
+  collab: { label: "Collaboration", markdown: "" },
   empty: { label: "A blank page", markdown: "" },
 } as const;
 

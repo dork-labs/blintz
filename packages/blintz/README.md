@@ -19,7 +19,7 @@ function Example() {
 }
 ```
 
-The whole public surface is one controlled `<MarkdownEditor value onChange />` component, plus `editable`, `placeholder`, `theme`, `className`, `embeds`, `wikiLinks`, `mermaid` and `plugins`. The Milkdown engine, the Crepe-derived feature views, and the theme CSS sit behind it.
+The whole public surface is one controlled `<MarkdownEditor value onChange />` component, plus `editable`, `placeholder`, `theme`, `className`, `embeds`, `wikiLinks`, `mermaid` and `plugins` (collaboration loads as a plugin). The Milkdown engine, the Crepe-derived feature views, and the theme CSS sit behind it.
 
 ## Read-only mode
 
@@ -141,6 +141,48 @@ Pass a mermaid loader and ` ```mermaid ` code blocks are drawn as diagrams under
 - The slash menu gains a **Diagram** item, and the language picker a `mermaid` entry, so any code block can become a diagram.
 - Without `mermaid`, these blocks stay ordinary code blocks; passing or removing it later updates them in place. Either way the markdown is unchanged.
 
+## Collaboration
+
+Several people (and agents) can edit one document at once through [Yjs](https://yjs.dev). `blintz/collab` binds an editor to a shared `Y.XmlFragment`, and your provider (y-websocket, Hocuspocus, your own) carries the updates:
+
+```tsx
+import { MarkdownEditor } from "blintz";
+import { collaboration } from "blintz/collab";
+
+const plugins = useMemo(
+  () => [collaboration({ fragment: ydoc.getXmlFragment("prosemirror"), awareness: provider.awareness, user: { name: "Ada", color: "#2f6fde" } })],
+  [ydoc, provider],
+);
+
+<MarkdownEditor value="" onChange={saveMarkdown} plugins={plugins} />;
+```
+
+- **Remote edits** appear in place, and cursors and selections survive them. Other people's cursors show with their name and color.
+- **Undo** reverts only this person's own edits. The editor's built-in history steps aside.
+- **Markdown is still the saved form.** `onChange` reports the document after every change, including other people's. Leave `value` alone while collaborating: the shared document is the source of truth.
+- **`yjs`, `y-prosemirror` and `y-protocols`** are optional peer dependencies, imported only by `blintz/collab`.
+
+### On the server
+
+The same entry runs with no DOM and no React, in Node (22 or later), a worker thread or the browser:
+
+```ts
+import { applyMarkdownToYDoc, createMarkdownModel, readYDoc, yDocToMarkdown } from "blintz/collab";
+
+const model = await createMarkdownModel(); // once per process or worker
+
+applyMarkdownToYDoc(model, ydoc, markdown); // seed a document before editors connect
+
+const { markdown: current, base } = readYDoc(model, ydoc); // an agent reads…
+applyMarkdownToYDoc(model, ydoc, edited, { base }); // …and later writes its change
+```
+
+`applyMarkdownToYDoc` changes as little as it can. Unchanged blocks keep their identity, edited text changes character by character, and writing identical content changes nothing. With the `base` from `readYDoc`, only the writer's own change (base to new markdown) is applied, so whatever people typed since the read stays. Without `base`, the document is made to equal the markdown.
+
+Seed documents on the server: an editor shows what the shared fragment holds, so an empty fragment means an empty page.
+
+In Node, Milkdown's internal timers need the global `addEventListener` and `dispatchEvent`. `createMarkdownModel` adds those two functions (and `removeEventListener`), backed by a private `EventTarget`, only when they are missing. Nothing else is added.
+
 ## Why Blintz
 
 Milkdown's [Crepe](https://milkdown.dev) is its ready-made editor on top of ProseMirror. Crepe builds its UI (toolbars, menus, node views) in Vue, so dropping it into a React app means bundling and bridging a second framework. Blintz gives you the same editing experience in React, and it treats markdown as the source of truth, so what you type comes back as clean markdown when you save (handy when you store the markdown).
@@ -165,6 +207,7 @@ It works at the seam Milkdown itself draws. The engine is framework-agnostic: Pr
 - Tables: GFM tables with column and row drag handles, plus a keyboard and touch menu to add, move or delete rows and columns.
 - Links: hover preview and an inline edit tooltip.
 - Wiki links: `[[Page#Heading|label]]` with host resolution and a `[[` suggestion menu (see [Wiki links](#wiki-links)).
+- Collaboration: real-time editing through Yjs, with cursors, per-person undo and server-side markdown merges (see [Collaboration](#collaboration)).
 - Embeds: block directives (`::chart{…}`, `:::callout … :::`) rendered by your own React components (see [Embeds](#embeds)).
 - A selection toolbar (bold, italic, strikethrough, code, link), a block placeholder, a virtual cursor, and dark mode.
 
@@ -249,7 +292,7 @@ The optional `sourceRevision` prop identifies an external source revision, inclu
 
 `port.range(from, to)` maps an editor range (ProseMirror positions, `[from, to)`) to raw markdown ranges, with the same evidence rules as `selection()`. For example, `@blintz/comments` gives a thread's range so an agent can quote it from the file.
 
-Any entry in `plugins` normally makes `bindSource` require an exact model match, because a plugin could change how markdown is parsed. A plugin that only adds decorations, views or key handling can say so with `preservesSourceMapping: true` (e.g. `Object.assign(myPlugin, { preservesSourceMapping: true })`); `@blintz/comments` does.
+Any entry in `plugins` normally makes `bindSource` require an exact model match, because a plugin could change how markdown is parsed. A plugin that brings its own undo (as `collaboration()` does) sets `replacesHistory: true`, and the editor leaves out its built-in history. A plugin that only adds decorations, views or key handling can say so with `preservesSourceMapping: true` (e.g. `Object.assign(myPlugin, { preservesSourceMapping: true })`); `@blintz/comments` does.
 
 ### Document resets
 

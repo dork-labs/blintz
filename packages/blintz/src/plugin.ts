@@ -47,4 +47,10 @@ export type BlintzPlugin = ((ctx: BlintzPluginContext) => void) & {
    * `bindSource` require an exact model match.
    */
   readonly preservesSourceMapping?: boolean;
+  /**
+   * Set to `true` when the plugin brings its own undo/redo (e.g. Yjs undo,
+   * which undoes only this person's edits). The editor then leaves out its
+   * built-in history, so the two never fight over Mod-Z.
+   */
+  readonly replacesHistory?: boolean;
 };

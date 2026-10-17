@@ -16,6 +16,10 @@ export default defineConfig({
   resolve: {
     alias: [
       {
+        find: /^blintz\/collab$/,
+        replacement: fileURLToPath(new URL("./packages/blintz/src/collab.ts", import.meta.url)),
+      },
+      {
         find: /^blintz$/,
         replacement: fileURLToPath(new URL("./packages/blintz/src/index.ts", import.meta.url)),
       },

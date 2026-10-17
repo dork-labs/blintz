@@ -142,12 +142,16 @@ function sync(previous: CommentsState, doc: Node, display: CommentsDisplay): Com
 }
 
 /**
- * Whether the host replaced the document (a new `value`), as Blintz tags it.
+ * Whether the document was rebuilt rather than edited: the host replaced it
+ * (a new `value`, as Blintz tags it) or a collaborator's change arrived.
  * Select-all and type looks identical step for step, so the step shape is
  * never used to decide this.
  */
 function isHostReset(tr: Transaction): boolean {
-  return tr.getMeta(DOCUMENT_RESET_META) === true;
+  if (tr.getMeta(DOCUMENT_RESET_META) === true) return true;
+  // Collaboration (y-prosemirror) applies every remote change, and Yjs undo,
+  // by replacing the whole document: re-find threads by their anchors then.
+  return (tr.getMeta("y-sync$") as { isChangeOrigin?: boolean } | undefined)?.isChangeOrigin === true;
 }
 
 /**
