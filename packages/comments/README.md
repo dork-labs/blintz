@@ -65,3 +65,28 @@ Options:
 One hook serves one editor; give each editor its own `useBlintzComments`.
 
 Highlights are styled by `.blintz-comment`, `.is-active` and `.is-resolved` in `styles.css`.
+
+## Without an editor
+
+`@blintz/comments/core` finds threads and makes anchors on plain markdown, with no editor, no DOM and no React, so a server or an agent can work on commented documents. It uses the same document as the editor (Blintz's headless model from `blintz/collab`), the same matching, and the same mapping to raw markdown as the editor's source port, so a thread lands in the same place on the server and in the editor.
+
+```ts
+import { createMarkdownModel } from "blintz/collab";
+import { createAnchor, resolveAnchor } from "@blintz/comments/core";
+
+const model = await createMarkdownModel(); // once per process or worker
+
+// An agent comments on raw markdown: the anchor is what the editor would make.
+const start = markdown.indexOf("Friday");
+const anchor = createAnchor(model, markdown, start, start + "Friday".length);
+
+// Later, on whatever the document has become:
+const found = resolveAnchor(model, latest, anchor);
+// null: orphaned. Otherwise { match, from, to, source }, where
+// source = { start, end, ranges } in `latest`, or null when part of the text
+// has no exact source (a wiki link, an escape, an entity).
+```
+
+- **`resolveAnchor(model, markdown, anchor)`** finds a thread as the editor does on opening the document. `from`/`to` are positions in `model.document(markdown)`, equal to the editor's `rangeOf(id)`. `source.ranges` equals the editor's `port.range(from, to)`: one raw range per text run, with markup between runs (`**`) left out. `source.start`/`source.end` span them all.
+- **`createAnchor(model, markdown, start, end)`** anchors the text inside a raw range, as the editor would from that selection. Ends inside markup snap inward to the text (`**bold**` anchors `bold`), and atoms the range covers whole are included. Text with an escape or an entity has no exact raw source, so a range lying only inside it returns `null`.
+- **Many threads, one parse:** pass `model.source(markdown)` in place of the markdown.

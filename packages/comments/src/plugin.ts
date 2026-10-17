@@ -9,7 +9,7 @@ import { diffMap } from "./diff-map";
 import {
   anchorFromRange,
   docText,
-  locateAnchor,
+  locateRange,
   offsetAt,
   positionAt,
   type AnchorMatch,
@@ -71,20 +71,7 @@ const anchorKey = (anchor: CommentAnchor) =>
   `${anchor.start}:${anchor.end}:${anchor.prefix}\u0000${anchor.quote}\u0000${anchor.suffix}`;
 
 function locate(doc: Node, anchor: CommentAnchor, model = docText(doc)): LiveRange | null {
-  return locateDetailed(doc, anchor, model);
-}
-
-function locateDetailed(
-  doc: Node,
-  anchor: CommentAnchor,
-  model = docText(doc),
-): (LiveRange & { context: number; fullContext: number }) | null {
-  const found = locateAnchor(model, anchor);
-  if (!found) return null;
-  const from = positionAt(model, found.start, "start");
-  const to = positionAt(model, found.end, "end");
-  if (from === null || to === null || from >= to) return null;
-  return { from, to, match: found.match, context: found.context, fullContext: found.fullContext };
+  return locateRange(doc, anchor, model);
 }
 
 function decorate(doc: Node, state: Omit<CommentsState, "decorations">, display: CommentsDisplay): DecorationSet {
@@ -226,7 +213,7 @@ function mapThrough(previous: CommentsState, tr: Transaction, display: CommentsD
       // A different document arrived: find the words in it.
       const last = lastAnchors.get(id);
       model ??= docText(tr.doc);
-      const found = last ? locateDetailed(tr.doc, last, model) : null;
+      const found = last ? locateRange(tr.doc, last, model) : null;
       if (found) ranges.set(id, found);
       else orphaned.set(id, "missing");
       continue;
@@ -238,7 +225,7 @@ function mapThrough(previous: CommentsState, tr: Transaction, display: CommentsD
       // another sentence.
       const fresh = anchorFromRange(tr.before, range.from, range.to);
       model ??= docText(tr.doc);
-      const found = fresh ? locateDetailed(tr.doc, fresh, model) : null;
+      const found = fresh ? locateRange(tr.doc, fresh, model) : null;
       if (found && enoughContext(found, "deleted")) {
         ranges.set(id, found);
         continue;
@@ -265,12 +252,12 @@ function mapThrough(previous: CommentsState, tr: Transaction, display: CommentsD
       const found =
         kind === "deleted" && !reset && exact
           ? restoredAt(model, anchor, deletedAt.get(id))
-          : locateDetailed(tr.doc, anchor, model);
+          : locateRange(tr.doc, anchor, model);
       // After a change too big to diff, a deleted thread returns only if its
       // words came back with it, never to a copy that was there all along.
       const wasThere = () => {
         beforeModel ??= docText(tr.before);
-        const before = locateDetailed(tr.before, anchor, beforeModel);
+        const before = locateRange(tr.before, anchor, beforeModel);
         return before !== null && enoughContext(before, "deleted");
       };
       if (kind === "deleted" && !reset && !exact && found && wasThere()) continue;

@@ -10,6 +10,7 @@ import {
   ParserReady,
   parserCtx,
   pasteRule,
+  remarkCtx,
   PasteRulesReady,
   schema,
   schemaCtx,
@@ -25,6 +26,9 @@ import type { Node, Schema } from "@milkdown/kit/prose/model";
 import { EditorState } from "@milkdown/kit/prose/state";
 import { trailingConfig } from "@milkdown/kit/plugin/trailing";
 import { headingIdGenerator } from "@milkdown/kit/preset/commonmark";
+
+import type { RawSourceRange } from "./source-location";
+import { mapRawRange, mapSourceRange, parseSource } from "./source-parser";
 
 import { embedGrammarFeature } from "./features/embeds/grammar-feature";
 import {
@@ -58,6 +62,31 @@ export interface MarkdownModel {
   document(markdown: string): Node;
   /** Serialize a document to markdown, exactly as the editor does. */
   serialize(doc: Node): string;
+  /**
+   * `document(markdown)` together with where its text came from in
+   * `markdown`, mapped the way the editor's source port maps (`range`).
+   */
+  source(markdown: string): MarkdownSource;
+}
+
+/** A document and the mapping between its positions and the markdown it was parsed from. */
+export interface MarkdownSource {
+  /** The markdown, as given. */
+  text: string;
+  /** Equal to `document(text)`. */
+  doc: Node;
+  /**
+   * The raw ranges the document range `[from, to)` came from, with the same
+   * evidence rules as the editor's `MarkdownSourcePort.range`: `null` when any
+   * part of it has no exact source (atoms such as wiki links, escapes, entities).
+   */
+  toSource(from: number, to: number): RawSourceRange[] | null;
+  /**
+   * The document range of the text inside the raw range `[start, end)`. Ends
+   * inside markdown syntax snap inward to the nearest text; `null` when no
+   * mapped text lies inside.
+   */
+  fromSource(start: number, end: number): { from: number; to: number } | null;
 }
 
 type Use = MilkdownPlugin | MilkdownPlugin[];
@@ -167,8 +196,10 @@ export async function createMarkdownModel(): Promise<MarkdownModel> {
   const schemaValue = ctx.get(schemaCtx);
   const getId = ctx.get(headingIdGenerator.key);
   const { shouldAppend, getNode } = trailingConfig.key._defaultValue;
-  const document = (markdown: string): Node => {
-    let doc = parse(markdown);
+  const remark = ctx.get(remarkCtx);
+  // What the editor adds after parsing; positions never move.
+  const finish = (parsed: Node): Node => {
+    let doc = parsed;
     // commonmark's heading-id sync: the generator's id, `-#n` for repeats.
     const ids: Record<string, number> = {};
     const tr = EditorState.create({ schema: schemaValue, doc }).tr;
@@ -191,6 +222,7 @@ export async function createMarkdownModel(): Promise<MarkdownModel> {
     }
     return doc;
   };
+  const document = (markdown: string): Node => finish(parse(markdown));
   return {
     schema: ctx.get(schemaCtx),
     parse: (markdown) => parse(markdown),
@@ -198,6 +230,19 @@ export async function createMarkdownModel(): Promise<MarkdownModel> {
     serialize: (doc) => {
       ctx.set(editorViewCtx, { state: { doc } } as never);
       return serialize(doc);
+    },
+    source: (markdown) => {
+      const parsed = parseSource(schemaValue, remark, markdown);
+      const doc = finish(parsed.doc);
+      return {
+        text: markdown,
+        doc,
+        toSource: (from, to) =>
+          Number.isInteger(from) && Number.isInteger(to) && from >= 0 && from <= to && to <= doc.content.size
+            ? mapSourceRange(parsed, doc, from, to)
+            : null,
+        fromSource: (start, end) => mapRawRange(parsed, start, end),
+      };
     },
   };
 }

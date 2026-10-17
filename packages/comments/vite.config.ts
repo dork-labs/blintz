@@ -20,9 +20,10 @@ export default defineConfig({
   ],
   build: {
     lib: {
-      entry: "src/index.ts",
+      // `core` is the editor-free half (no React, no DOM, no CSS).
+      entry: { index: "src/index.ts", core: "src/core.ts" },
       formats: ["es"],
-      fileName: () => "index.js",
+      fileName: (_, name) => `${name}.js`,
       cssFileName: "comments",
     },
     rollupOptions: {

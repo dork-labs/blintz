@@ -13,4 +13,5 @@ export type { CollaborationOptions, CollaborationUser } from "./collab/plugin";
 export { applyMarkdownToYDoc, readYDoc, yDocToMarkdown, DEFAULT_FIELD } from "./collab/ydoc";
 export type { YDocOptions, YDocSnapshot } from "./collab/ydoc";
 export { createMarkdownModel } from "./headless";
-export type { MarkdownModel } from "./headless";
+export type { MarkdownModel, MarkdownSource } from "./headless";
+export type { RawSourceRange } from "./source-location";

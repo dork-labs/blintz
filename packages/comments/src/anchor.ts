@@ -180,3 +180,20 @@ export function locateAnchor(
     fullContext,
   };
 }
+
+/**
+ * {@link locateAnchor}, as document positions: where the editor puts a thread
+ * when it first sees its anchor. `null` when the text is gone.
+ */
+export function locateRange(
+  doc: Node,
+  anchor: CommentAnchor,
+  model = docText(doc),
+): { from: number; to: number; match: AnchorMatch; context: number; fullContext: number } | null {
+  const found = locateAnchor(model, anchor);
+  if (!found) return null;
+  const from = positionAt(model, found.start, "start");
+  const to = positionAt(model, found.end, "end");
+  if (from === null || to === null || from >= to) return null;
+  return { from, to, match: found.match, context: found.context, fullContext: found.fullContext };
+}

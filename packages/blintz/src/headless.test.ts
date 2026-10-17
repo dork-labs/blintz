@@ -48,3 +48,46 @@ describe("createMarkdownModel (Node, no DOM)", () => {
     expect(a.serialize(a.parse("Hi\n"))).toBe("Hi\n");
   });
 });
+
+describe("model.source (Node, no DOM)", () => {
+  const markdown = "# Plan\n\nThe **launch** is on Friday, see [[Roadmap]].\n\n- one\n- two &amp; three\n";
+
+  it("gives the editor's document", async () => {
+    const model = await createMarkdownModel();
+    expect(model.source(markdown).doc.eq(model.document(markdown))).toBe(true);
+  });
+
+  it("maps document ranges to the raw markdown they came from", async () => {
+    const model = await createMarkdownModel();
+    const source = model.source(markdown);
+    const text = (from: number, to: number) =>
+      source.toSource(from, to)?.map((range) => markdown.slice(range.start, range.end));
+    const at = (word: string) => {
+      let found = -1;
+      source.doc.descendants((node, pos) => {
+        if (found < 0 && node.isText && node.text!.includes(word)) found = pos + node.text!.indexOf(word);
+      });
+      return found;
+    };
+    expect(text(at("launch"), at("launch") + 6)).toEqual(["launch"]);
+    // Across a mark: one raw range per text run.
+    expect(text(at("The"), at("is on") + 2)).toEqual(["The ", "launch", " is"]);
+    // An atom (a wiki link) or an entity has no exact source.
+    expect(source.toSource(at("see"), at("see") + 6)).toBeNull();
+    expect(source.toSource(at("two"), at("three") + 5)).toBeNull();
+    expect(source.toSource(-1, 2)).toBeNull();
+  });
+
+  it("maps raw ranges back, snapping ends inside markup to the text", async () => {
+    const model = await createMarkdownModel();
+    const source = model.source(markdown);
+    const between = (start: number, end: number) => {
+      const range = source.fromSource(start, end);
+      return range && source.doc.textBetween(range.from, range.to);
+    };
+    const raw = markdown.indexOf("**launch**");
+    expect(between(raw, raw + "**launch**".length)).toBe("launch");
+    expect(between(raw + 2, raw + 8)).toBe("launch");
+    expect(between(0, 2)).toBeNull();
+  });
+});
