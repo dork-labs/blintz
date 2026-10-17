@@ -19,7 +19,7 @@ function Example() {
 }
 ```
 
-The whole public surface is one controlled `<MarkdownEditor value onChange />` component, plus `editable`, `placeholder`, `theme`, and `className`. The Milkdown engine, the Crepe-derived feature views, and the theme CSS sit behind it.
+The whole public surface is one controlled `<MarkdownEditor value onChange />` component, plus `editable`, `placeholder`, `theme`, `className`, `embeds` and `plugins`. The Milkdown engine, the Crepe-derived feature views, and the theme CSS sit behind it.
 
 ## Read-only mode
 
@@ -36,6 +36,66 @@ Pass `editable={false}` to render a document read-only. The content still render
 ```
 
 (The `plugins` prop is the exception: it is read once at mount, so changing the extension set still needs a remount.)
+
+## Embeds
+
+Embeds put your own React components inside a document while the document stays plain markdown. Write a block directive, and Blintz renders the component you registered under that name:
+
+```md
+::chart[Tasks closed]{kind="bar" src="tasks/q3"}
+
+:::callout{tone="warn"}
+Anything in here is **ordinary markdown**, editable in place.
+:::
+```
+
+```tsx
+import { MarkdownEditor, type EmbedProps, type EmbedRegistry } from "blintz";
+
+function Chart({ attributes, label }: EmbedProps) {
+  return <MyChart src={attributes.src} kind={attributes.kind} title={label} />;
+}
+
+function Callout({ attributes, children }: EmbedProps) {
+  return <aside data-tone={attributes.tone}>{children}</aside>;
+}
+
+const embeds: EmbedRegistry = {
+  chart: { component: Chart, title: "Chart", defaultAttributes: { kind: "bar" } },
+  callout: { component: Callout, kind: "container" },
+};
+
+<MarkdownEditor value={md} onChange={setMd} embeds={embeds} />;
+```
+
+- `::name{…}` is a leaf embed. `:::name … :::` is a container whose markdown content arrives as `children`. Put `children` where the editable content should go. If a component doesn't render `children` (or renders them later), the content shows below it, so it is never hidden.
+- Inside a container, Enter on an empty last line leaves it, as in a quote. Backspace at its very start selects the whole embed instead of unwrapping it; press it again to delete the embed.
+- A component gets `name`, `attributes` (all strings), `label` (the `[…]` text), `editable`, and, while the document is editable, `updateAttributes(next)`, which writes new attributes back to the markdown as one undoable step. Render from these props alone, so the same component can render a published page on the server.
+- `validate` takes a [Standard Schema](https://standardschema.dev) (Zod, Valibot, ArkType and others) or a plain function returning `{ issues }`. Invalid attributes show the problems instead of the component.
+- A name with nothing registered shows a placeholder and stays in the markdown unchanged. A component that throws shows an error in its place; the rest of the editor keeps working.
+- Registered embeds appear in the slash menu under **Embeds**. `hideFromMenu` leaves one out.
+- `embeds` is reactive: changing it re-renders embeds in place, with no remount.
+
+Only block directives are recognized. Inline `:name[…]` directives are not, so text such as `:smile:` or `note:this` is never touched, and neither is a line like `::: note` or `::std::cout`. What does change meaning:
+
+- A line that is a complete directive (`::name`, `::name[label]{attrs}` or `:::name…`, with nothing after it) becomes an embed, even inside a paragraph. When you mean it as text, write `\::name`.
+- Attributes are written back as double-quoted `key="value"` pairs in their written order. Other spellings still parse and are rewritten in that form: `key=value`, `#id`, `.class`. A repeated key keeps its last value, and `{a=""}` is written `{a}`.
+
+### Rendering directives without the editor
+
+`blintz/directives` is the same grammar as a remark plugin, with no React or ProseMirror. Use it to publish documents or read them on a server:
+
+```ts
+import { unified } from "unified";
+import remarkParse from "remark-parse";
+import remarkStringify from "remark-stringify";
+import { remarkBlockDirectives, validateEmbedAttributes } from "blintz/directives";
+
+const tree = unified().use(remarkParse).use(remarkBlockDirectives).parse(markdown);
+// `leafDirective` and `containerDirective` nodes carry `name` and `attributes`.
+```
+
+When writing markdown, `remarkBlockDirectives` wraps the paragraph handler so text that looks like a directive stays text. Register any plugin with its own paragraph handler *before* it, so the guard wraps that handler instead of being replaced.
 
 ## Why Blintz
 
@@ -59,6 +119,7 @@ It works at the seam Milkdown itself draws. The engine is framework-agnostic: Pr
 - Images: uploader or URL input, with captions.
 - Tables: GFM tables with column and row drag handles, plus a keyboard and touch menu to add, move or delete rows and columns.
 - Links: hover preview and an inline edit tooltip.
+- Embeds: block directives (`::chart{…}`, `:::callout … :::`) rendered by your own React components (see [Embeds](#embeds)).
 - A selection toolbar (bold, italic, strikethrough, code, link), a block placeholder, a virtual cursor, and dark mode.
 
 Icons come from [Lucide](https://lucide.dev), rendered through a sanitized `<Icon>`.

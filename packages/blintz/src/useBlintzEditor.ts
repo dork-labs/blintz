@@ -27,6 +27,7 @@ import { sourceEditorAssembly } from "./source-plugin";
 import { DEFAULT_EDITABLE, editablePredicate } from "./read-only";
 import { blockEditFeature } from "./features/block-edit/plugins";
 import { codeMirrorFeature } from "./features/code-block";
+import { embedsFeature } from "./features/embeds";
 import { cursorFeature } from "./features/cursor";
 import { stripEmptyLineBreaks } from "./features/empty-paragraphs";
 import { frontmatterFeature } from "./features/frontmatter";
@@ -175,6 +176,8 @@ export function useBlintzEditor({
     });
     listItemFeature(editor, nodeViewFactory);
     imageBlockFeature(editor, nodeViewFactory);
+    // Block directives; the registry is read live from React context.
+    embedsFeature(editor, nodeViewFactory);
     codeMirrorFeature(editor, nodeViewFactory);
     tableFeature(editor, nodeViewFactory);
     toolbarFeature(editor, pluginViewFactory);

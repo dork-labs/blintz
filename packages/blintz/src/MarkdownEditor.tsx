@@ -8,6 +8,7 @@ import {
 } from "@prosemirror-adapter/react";
 
 import { EditorCtxProvider } from "./shared/editor-ctx";
+import { EmbedRegistryProvider, type EmbedRegistry } from "./features/embeds/registry";
 import type { CtxHolder } from "./shared/editor-ctx";
 import { cx } from "./shared/cx";
 import type { SourceCallbacks } from "./source-controller";
@@ -51,7 +52,17 @@ export interface MarkdownEditorProps extends SourceCallbacks {
    * Captured at mount: remount the editor to change the set.
    */
   plugins?: BlintzPlugin[];
+  /**
+   * The embed catalog: directive name → React component (plus optional
+   * validator and slash-menu details). `::chart{src="q3"}` renders
+   * `embeds.chart.component`; `:::name … :::` containers receive their editable
+   * content as `children`. Unregistered names render a placeholder and still
+   * round-trip unchanged. Reactive: changing it re-renders embeds in place.
+   */
+  embeds?: EmbedRegistry;
 }
+
+const NO_EMBEDS: EmbedRegistry = {};
 
 /**
  * A Vue-free, markdown-round-tripping prose editor: `@milkdown/react` over the
@@ -71,6 +82,7 @@ export function MarkdownEditor({
   className,
   theme = "auto",
   plugins,
+  embeds = NO_EMBEDS,
   sourceRevision,
   onSourceReady,
   onSourceSelection,
@@ -129,22 +141,24 @@ export function MarkdownEditor({
       data-blintz-theme={theme === "auto" ? resolvedTheme : theme}
     >
       <EditorCtxProvider value={ctxHolder}>
-        <MilkdownProvider>
-          <ProsemirrorAdapterProvider>
-            <EditorInner
-              value={value}
-              editable={editable}
-              onChange={onChange}
-              placeholder={placeholder}
-              ctxHolder={ctxHolder}
-              plugins={plugins}
-              sourceRevision={sourceRevision}
-              onSourceReady={onSourceReady}
-              onSourceSelection={onSourceSelection}
-              onTaskToggleRequest={onTaskToggleRequest}
-            />
-          </ProsemirrorAdapterProvider>
-        </MilkdownProvider>
+        <EmbedRegistryProvider value={embeds}>
+          <MilkdownProvider>
+            <ProsemirrorAdapterProvider>
+              <EditorInner
+                value={value}
+                editable={editable}
+                onChange={onChange}
+                placeholder={placeholder}
+                ctxHolder={ctxHolder}
+                plugins={plugins}
+                sourceRevision={sourceRevision}
+                onSourceReady={onSourceReady}
+                onSourceSelection={onSourceSelection}
+                onTaskToggleRequest={onTaskToggleRequest}
+              />
+            </ProsemirrorAdapterProvider>
+          </MilkdownProvider>
+        </EmbedRegistryProvider>
       </EditorCtxProvider>
     </div>
   );

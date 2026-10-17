@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { MarkdownEditor } from "blintz";
+import { SAMPLE_EMBEDS } from "./embeds";
 import { SPECIMENS, type SpecimenId } from "./specimens";
 import "./playground.css";
 
@@ -106,6 +107,7 @@ export default function Playground() {
               onChange={setMarkdown}
               theme={query.get("auto") === "true" ? "auto" : theme}
               editable={editable}
+              embeds={SAMPLE_EMBEDS}
             />
           </section>
           {source && (

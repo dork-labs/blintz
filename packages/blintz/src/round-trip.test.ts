@@ -4,8 +4,9 @@
  * Blintz markdown round-trip fidelity contract.
  *
  * Mounts a headless editor with the EXACT grammar plugins `useBlintzEditor`
- * loads (commonmark minus the empty-line `<br />` hack, plus gfm and the
- * frontmatter feature), seeds a document, and serializes it straight back. The
+ * loads (commonmark minus the empty-line `<br />` hack, plus gfm, the
+ * frontmatter feature, and the block-directive grammar), seeds a document, and
+ * serializes it straight back. The
  * React feature views are editing chrome and do not affect serialization, so
  * this is a faithful measure of what survives a parse -> serialize trip.
  *
@@ -26,6 +27,7 @@ import {
   commonmarkWithoutEmptyLinePreservation,
   stripEmptyLineBreaks,
 } from "./features/empty-paragraphs";
+import { embedGrammarFeature } from "./features/embeds/grammar-feature";
 import { frontmatterFeature } from "./features/frontmatter";
 
 async function roundTrip(markdown: string): Promise<string> {
@@ -39,6 +41,7 @@ async function roundTrip(markdown: string): Promise<string> {
     .use(stripEmptyLineBreaks)
     .use(gfm);
   frontmatterFeature(editor);
+  embedGrammarFeature(editor);
   await editor.create();
   const out = editor.action(getMarkdown());
   await editor.destroy();

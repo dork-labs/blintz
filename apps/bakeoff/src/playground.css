@@ -157,3 +157,34 @@
     border-radius: 10px;
   }
 }
+
+/* Sample embeds (Live embeds specimen) */
+.sample-chart {
+  margin: 0;
+  padding: 12px 16px;
+  border: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+  border-radius: 8px;
+}
+.sample-chart-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 96px;
+}
+.sample-chart-bars span {
+  flex: 1;
+  min-height: 2px;
+  border-radius: 3px 3px 0 0;
+  background: color-mix(in srgb, currentColor 55%, transparent);
+}
+.sample-chart figcaption {
+  margin-top: 8px;
+  font-size: 13px;
+  opacity: 0.75;
+}
+.sample-callout {
+  padding: 4px 16px;
+  border-left: 3px solid color-mix(in srgb, currentColor 45%, transparent);
+  border-radius: 4px;
+  background: color-mix(in srgb, currentColor 5%, transparent);
+}
