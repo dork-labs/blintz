@@ -7,7 +7,7 @@ A React port of Milkdown's Crepe editor: a WYSIWYG markdown editor that round-tr
 npm workspaces:
 
 - `packages/blintz`: the library, published to npm
-- `packages/comments`: `@blintz/comments`, a private placeholder
+- `packages/comments`: `@blintz/comments`, comment threads anchored to text (published to npm; `@blintz/comments/core` works without an editor)
 - `apps/bakeoff`: the main dev surface; `/playground` is the specimen page the browser tests use
 - `examples/basic`: the smallest Vite + React usage
 

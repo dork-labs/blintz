@@ -2,6 +2,10 @@
 
 Google-Docs-style comments for the [Blintz](https://github.com/dork-labs/blintz) editor: threads anchored to text, kept out of the markdown.
 
+```bash
+npm install @blintz/comments blintz
+```
+
 You own the threads: where they're stored, who wrote them, the replies and the sidebar. This package owns where they sit in the text. It highlights them, keeps them attached as the document is edited, finds them again when the document is reopened, and tells you when a thread's text is gone.
 
 ```tsx
