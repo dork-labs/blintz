@@ -77,16 +77,17 @@ describe("renderMermaid", () => {
     await expect(renderMermaid(loader, "graph A", "light")).resolves.toContain("<svg");
   });
 
-  it("keeps the host's own mermaid settings", async () => {
+  it("keeps the host's own mermaid settings, minus computed theme colours", async () => {
     const host = { theme: "forest", securityLevel: "loose", fontFamily: "HostFont" };
     const seen: Array<Record<string, unknown>> = [];
     const module: MermaidModule = {
       initialize: (config) => void seen.push(config),
       render: async () => ({ svg: "<svg></svg>" }),
-      mermaidAPI: { getSiteConfig: () => ({ ...host }) },
+      mermaidAPI: { getSiteConfig: () => ({ ...host, themeVariables: { primaryColor: "#ECECFF" } }) },
     };
     await renderMermaid(async () => module, "graph A", "dark");
     expect(seen[0]).toMatchObject({ fontFamily: "HostFont", securityLevel: "strict", theme: "dark" });
+    expect(seen[0]).not.toHaveProperty("themeVariables");
     expect(seen.at(-1)).toEqual(host);
   });
 
@@ -216,6 +217,34 @@ describe("<MarkdownEditor mermaid> while editing", () => {
     }
     await waitFor(() => el.querySelector(".preview svg")?.getAttribute("data-text") === "graph ABCD");
     expect(calls.map((call) => call.text)).toEqual(["graph ABCD"]);
+  });
+
+  it("never re-draws when the host re-renders with an inline loader", async () => {
+    const { module, calls } = fakeMermaid();
+    let loads = 0;
+    const el = await mount(DIAGRAM, {
+      mermaid: async () => {
+        loads++;
+        return module;
+      },
+    });
+    await waitFor(() => el.querySelector(".preview svg") !== null);
+    for (let i = 0; i < 5; i++) {
+      await act(async () =>
+        root!.render(
+          <MarkdownEditor
+            value={DIAGRAM}
+            mermaid={async () => {
+              loads++;
+              return module;
+            }}
+          />,
+        ),
+      );
+    }
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 400)));
+    expect(calls).toHaveLength(1);
+    expect(loads).toBe(1);
   });
 
   it("draws existing diagrams once a loader arrives, and drops them when it goes", async () => {

@@ -67,7 +67,10 @@ function load(loader: MermaidLoader): Promise<MermaidModule> {
 // mermaid keeps one global configuration, so renders run one at a time: each
 // applies Blintz's settings on top of the host's, renders, then restores the
 // host's settings. Every step is time-limited, so one stuck load or render
-// can never hold up the diagrams behind it.
+// can never hold up the diagrams behind it. A render that times out may still
+// be running inside mermaid (it can't be cancelled); the next one proceeds
+// anyway, and a truly hung mermaid makes each later diagram fail in turn
+// rather than wait forever.
 let queue: Promise<unknown> = Promise.resolve();
 let counter = 0;
 
@@ -82,7 +85,10 @@ export function renderMermaid(
     if (signal?.aborted) throw abortError();
     const mermaid = await load(loader);
     if (signal?.aborted) throw abortError();
-    const site = mermaid.mermaidAPI?.getSiteConfig?.() as Record<string, unknown> | undefined;
+    // The host's settings, minus `themeVariables`: mermaid stores the colours
+    // computed for the current theme there, and carrying them over would
+    // paint a dark diagram in light colours (and pin them on restore).
+    const site = hostSettings(mermaid);
     mermaid.initialize({
       ...(site ?? {}),
       startOnLoad: false,
@@ -102,6 +108,13 @@ export function renderMermaid(
   });
   queue = run.catch(() => undefined);
   return run;
+}
+
+function hostSettings(mermaid: MermaidModule): Record<string, unknown> | undefined {
+  const site = mermaid.mermaidAPI?.getSiteConfig?.() as Record<string, unknown> | undefined;
+  if (!site) return undefined;
+  const { themeVariables: _computed, ...rest } = site;
+  return rest;
 }
 
 function abortError(): Error {

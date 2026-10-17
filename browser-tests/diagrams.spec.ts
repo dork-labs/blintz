@@ -16,6 +16,12 @@ for (const theme of ["light", "dark"]) {
     await expect(diagram).toBeVisible({ timeout: 15000 });
     await expect(diagram).toContainText("Review");
     await expect(editor.locator(".blintz-diagram-error")).toContainText("can't be drawn");
+    // The node colours follow the theme (not the light palette in dark mode).
+    const fill = await diagram.locator(".node rect, .node polygon").first().evaluate((node) => getComputedStyle(node).fill);
+    const [r, g, b] = fill.match(/\d+/g)!.map(Number);
+    const luminance = (0.299 * r! + 0.587 * g! + 0.114 * b!) / 255;
+    if (theme === "dark") expect(luminance).toBeLessThan(0.5);
+    else expect(luminance).toBeGreaterThan(0.5);
     const width = await diagram.evaluate((svg) => svg.getBoundingClientRect().width);
     const paper = await page.getByTestId("specimen-paper").evaluate((el) => el.getBoundingClientRect().width);
     expect(width).toBeLessThanOrEqual(paper);

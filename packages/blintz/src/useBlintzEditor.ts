@@ -85,7 +85,6 @@ export function useBlintzEditor({
   onSourceSelection,
   onTaskToggleRequest,
 }: UseCrepeEditorArgs): void {
-
   const sourceRef = useRef<SourceController | null>(null);
   const callbacksRef = useRef<SourceCallbacks>({});
   // Render attempts may suspend: only a committed lifecycle may publish handlers

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Ctx } from "@milkdown/kit/ctx";
 import { Milkdown, MilkdownProvider } from "@milkdown/react";
 import {
@@ -156,6 +156,16 @@ export function MarkdownEditor({
 
   const effectiveTheme = theme === "auto" ? resolvedTheme : theme;
 
+  // Hosts often pass the loader inline (a new function each render). Diagrams
+  // only need to know whether one exists; a stable wrapper calls the latest,
+  // so host re-renders never re-draw them.
+  const mermaidRef = useRef(mermaid);
+  useLayoutEffect(() => {
+    mermaidRef.current = mermaid;
+  }, [mermaid]);
+  const stableMermaid = useCallback<MermaidLoader>(() => mermaidRef.current!(), []);
+  const mermaidLoader = mermaid ? stableMermaid : undefined;
+
   return (
     <div
       ref={hostRef}
@@ -166,7 +176,7 @@ export function MarkdownEditor({
         <BlintzThemeProvider value={effectiveTheme}>
           <EmbedRegistryProvider value={embeds}>
             <WikiLinkProvider options={wikiLinks}>
-              <MermaidProvider value={mermaid}>
+              <MermaidProvider value={mermaidLoader}>
                 <MilkdownProvider>
                   <ProsemirrorAdapterProvider>
                     <EditorInner

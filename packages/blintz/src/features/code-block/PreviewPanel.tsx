@@ -22,7 +22,7 @@ function createSvgAwareSanitizer() {
 
   const config = {
     ADD_TAGS: ["foreignObject"],
-    ADD_ATTR: ["xmlns", "target"],
+    ADD_ATTR: ["xmlns"],
     HTML_INTEGRATION_POINTS: { foreignobject: true },
   };
 

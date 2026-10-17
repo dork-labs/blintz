@@ -31,6 +31,7 @@ export function CodeBlockView() {
   const theme = useBlintzTheme();
   const mermaid = useMermaidLoader();
   const rendered = useRef(false);
+  const previewLanguage = useRef<string | null>(null);
   const ctx = useEditorCtx();
   const editable = useEditorEditable(view);
   const config = ctx.get(codeBlockConfig.key);
@@ -125,12 +126,15 @@ export function CodeBlockView() {
     if (result) {
       setPreview(result);
     } else if (result === undefined) {
-      // Async render with nothing applied yet → loading state.
-      setPreview((prev) => prev || config.previewLoading);
+      // Async render: keep the last preview while it re-draws, unless the
+      // language changed (a KaTeX preview under a mermaid block is wrong).
+      const switched = previewLanguage.current !== null && previewLanguage.current !== language;
+      setPreview((prev) => (switched ? config.previewLoading : prev || config.previewLoading));
     } else {
       // result === null → no preview.
       setPreview(null);
     }
+    previewLanguage.current = language;
     return () => {
       live = false;
       controller.abort();
