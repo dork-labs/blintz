@@ -90,7 +90,8 @@ found is a nit, open with "No blocking issues."
   themes, lists, tables) belongs in `browser-tests/`.
 - **Screenshot baseline changes are intended.** Every changed `*-darwin.png`
   should correspond to a visual change the PR describes. Baselines are
-  macOS-only, so a baseline regenerated on another OS is a finding.
+  macOS-only and must come from CI's runner image (the "Update screenshots"
+  workflow), so a baseline regenerated elsewhere is a finding.
 - **Light and dark themes** both still work for any styling change.
 - **`editable={false}` stays read-only**, and toggling it emits no `onChange`.
 - **Docs describe the new behavior**: `README.md`, `packages/blintz/README.md`,

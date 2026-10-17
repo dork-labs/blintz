@@ -23,7 +23,7 @@ npm run test:browser -- browser-tests/table.spec.ts  # One browser spec
 - **Unit tests must match `packages/*/src/**/*.test.{ts,tsx}`** (root `vitest.config.ts`). A test file anywhere else silently never runs.
 - **The default environment is `node`.** A test that mounts the editor needs a DOM; copy the setup from `packages/blintz/src/reactive-editable.test.tsx`.
 - **Vitest filters are positional** (path or name substrings after `vitest run`), plus `-t` for test names. `--testPathPattern` is a Jest flag and is invalid here.
-- **Screenshot baselines are macOS-only** (`*-darwin.png`); CI runs on `macos-14`. Update them with `npm run test:browser:update` only after confirming the visual change is intended, and only on macOS.
+- **Screenshot baselines are macOS-only** (`*-darwin.png`); CI runs on `macos-15`. Update them only after confirming the visual change is intended, with the "Update screenshots" workflow so they come from the same macOS image as CI.
 - **Playwright starts its own bakeoff dev server** on port 5191 with `strictPort` (override with `BLINTZ_TEST_PORT`). A port clash fails the whole run. Pick another port; never kill a server you did not start.
 - The library is consumed as TS source by tests and the bakeoff, so no build is needed first.
 

@@ -1,8 +1,6 @@
 name: Update screenshots
 on:
   workflow_dispatch:
-  push:
-    branches: [ci/macos-15-runner]
 permissions:
   contents: read
 jobs:

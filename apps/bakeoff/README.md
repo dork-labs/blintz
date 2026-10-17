@@ -81,9 +81,13 @@ list semantics and marker alignment, keyboard checkboxes, read-only changes,
 theme inheritance, typing, reset, and undo after a live theme change.
 
 Approved image baselines live in `browser-tests/editor.spec.ts-snapshots`.
-CI runs on macOS 14 to match the system fonts used to review the baselines.
-After an intentional visual change, run `npm run test:browser:update` on macOS,
-**open and inspect every changed image**, then run `npm run test:browser`
-without the update flag. Never update baselines just to clear a failure.
+CI runs on macOS 15 to match the system fonts used to review the baselines.
+After an intentional visual change, run the "Update screenshots" workflow on
+your branch (`gh workflow run update-screenshots.yml --ref <branch>`), which
+uses the same macOS image as CI, and download its `screenshots` artifact
+(`gh run download <run-id> -n screenshots -D browser-tests`). **Open and
+inspect every changed image** before committing it. A local
+`npm run test:browser:update` only matches CI if your Mac runs the same macOS.
+Never update baselines just to clear a failure.
 Other platforms can run the behavioral tests or generate and review their own
 platform-specific baselines. Traces and screenshots are retained on failures.
