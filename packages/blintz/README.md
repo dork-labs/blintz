@@ -75,7 +75,10 @@ const embeds: EmbedRegistry = {
 - Registered embeds appear in the slash menu under **Embeds**. `hideFromMenu` leaves one out.
 - `embeds` is reactive: changing it re-renders embeds in place, with no remount.
 
-Only block directives are recognized. Inline `:name[…]` directives are not, so text such as `:smile:` or `note:this` is never touched. Attributes are written back as `key="value"` pairs; other spellings (`key=value`, `#id`, `.class`) still parse and are rewritten in that form.
+Only block directives are recognized. Inline `:name[…]` directives are not, so text such as `:smile:` or `note:this` is never touched, and neither is a line like `::: note` or `::std::cout`. What does change meaning:
+
+- A line that is a complete directive (`::name`, `::name[label]{attrs}` or `:::name…`, with nothing after it) becomes an embed, even inside a paragraph. When you mean it as text, write `\::name`.
+- Attributes are written back as double-quoted `key="value"` pairs in their written order. Other spellings still parse and are rewritten in that form: `key=value`, `#id`, `.class`. A repeated key keeps its last value, and `{a=""}` is written `{a}`.
 
 ### Rendering directives without the editor
 

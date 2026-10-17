@@ -18,7 +18,12 @@ import { createTable } from "@milkdown/kit/preset/gfm";
 
 import { imageBlockSchema } from "../image-block/schema";
 import type { EmbedRegistry } from "../embeds/registry";
-import { embedContainerSchema, embedSchema } from "../embeds/schema";
+import { DIRECTIVE_NAME } from "../embeds/grammar";
+import {
+  cleanAttributes,
+  embedContainerSchema,
+  embedSchema,
+} from "../embeds/schema";
 import { GroupBuilder, type MenuItemGroup } from "../../shared/group-builder";
 import {
   bulletListIcon,
@@ -212,9 +217,10 @@ export function getGroups(filter: string, embeds: EmbedRegistry = {}) {
     },
   });
 
-  // Host-registered embeds (the `embeds` prop), in registration order.
+  // Host-registered embeds (the `embeds` prop), in registration order. A name
+  // the directive grammar cannot write back (`a b`, `""`) is never offered.
   const embedEntries = Object.entries(embeds).filter(
-    ([, definition]) => !definition.hideFromMenu,
+    ([name, definition]) => !definition.hideFromMenu && DIRECTIVE_NAME.test(name),
   );
   if (embedEntries.length > 0) {
     const embedGroup = groupBuilder.addGroup("embed", "Embeds");
@@ -226,7 +232,7 @@ export function getGroups(filter: string, embeds: EmbedRegistry = {}) {
           const commands = ctx.get(commandsCtx);
           const attrs = {
             name,
-            attributes: { ...(definition.defaultAttributes ?? {}) },
+            attributes: cleanAttributes(definition.defaultAttributes),
             label: null,
           };
           commands.call(clearTextInCurrentBlockCommand.key);

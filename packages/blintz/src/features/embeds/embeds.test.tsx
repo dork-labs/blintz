@@ -7,12 +7,13 @@
  * `updateAttributes` back to markdown.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { act } from "react";
+import { act, useEffect } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
 import { MarkdownEditor } from "../../MarkdownEditor";
 import type { EmbedProps, EmbedRegistry } from "./registry";
 import { validateEmbedAttributes, type StandardSchemaV1 } from "./grammar";
+import { getGroups } from "../block-edit/menu-config";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -149,6 +150,109 @@ describe("<MarkdownEditor embeds>", () => {
     await waitFor(() => props !== undefined);
     expect(props!.editable).toBe(false);
     expect(props!.updateAttributes).toBeUndefined();
+  });
+});
+
+describe("embed views keep the document whole", () => {
+  it("keeps container content visible when the component ignores children", async () => {
+    const Ignores = () => <aside data-testid="ignores" />;
+    const el = await mount(":::box\nsecret body text\n:::\n", {
+      box: { component: Ignores, kind: "container" },
+    });
+    await waitFor(() => el.querySelector('[data-testid="ignores"]') !== null);
+    await waitFor(() => (el.querySelector(".ProseMirror")!.textContent ?? "").includes("secret body text"));
+    const content = el.querySelector(".blintz-embed-content")!;
+    expect(content.isConnected).toBe(true);
+    expect(content.textContent).toBe("secret body text");
+  });
+
+  it("keeps container content visible when the component throws", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const Broken = () => {
+      throw new Error("kaboom");
+    };
+    const el = await mount(":::box\nsecret body text\n:::\n", {
+      box: { component: Broken, kind: "container" },
+    });
+    await waitFor(() => el.textContent!.includes("kaboom"));
+    await waitFor(() => el.querySelector(".blintz-embed-content")?.textContent === "secret body text");
+    expect(el.querySelector(".blintz-embed-notice-source")!.textContent).toBe(":::box");
+    error.mockRestore();
+  });
+
+  it("does not remount a validated component when its attributes change", async () => {
+    let mounts = 0;
+    let update: EmbedProps["updateAttributes"];
+    const Counter = (props: EmbedProps) => {
+      update = props.updateAttributes;
+      useEffect(() => {
+        mounts++;
+      }, []);
+      return <span data-testid="n">{props.attributes.n}</span>;
+    };
+    const el = await mount('::counter{n="1"}\n\nAfter.\n', {
+      counter: { component: Counter, validate: () => ({}) },
+    });
+    await waitFor(() => el.querySelector('[data-testid="n"]')?.textContent === "1");
+    await act(async () => update!({ n: "2" }));
+    await waitFor(() => el.querySelector('[data-testid="n"]')?.textContent === "2");
+    expect(mounts).toBe(1);
+  });
+
+  it("keeps the last result on screen while an async validator re-runs", async () => {
+    let mounts = 0;
+    let update: EmbedProps["updateAttributes"];
+    const Counter = (props: EmbedProps) => {
+      update = props.updateAttributes;
+      useEffect(() => {
+        mounts++;
+      }, []);
+      return <span data-testid="n">{props.attributes.n}</span>;
+    };
+    const el = await mount('::counter{n="1"}\n\nAfter.\n', {
+      counter: { component: Counter, validate: async () => ({}) },
+    });
+    await waitFor(() => el.querySelector('[data-testid="n"]')?.textContent === "1");
+    await act(async () => update!({ n: "2" }));
+    await waitFor(() => el.querySelector('[data-testid="n"]')?.textContent === "2");
+    expect(mounts).toBe(1);
+  });
+
+  it("refuses attribute names the grammar cannot write back", async () => {
+    const onChange = vi.fn();
+    let update: EmbedProps["updateAttributes"];
+    const Capture = (props: EmbedProps) => {
+      update = props.updateAttributes;
+      return null;
+    };
+    await mount('::chart{src="q3"}\n\nAfter.\n', { chart: { component: Capture } }, { onChange });
+    await waitFor(() => update !== undefined);
+    const bads: Record<string, string>[] = [{ "a}": "1" }, { "": "1" }, { "a b": "1" }];
+    for (const bad of bads) {
+      expect(() => update!(bad)).toThrow(/invalid embed attribute name/);
+    }
+    expect(() => update!({ n: 3 as unknown as string })).toThrow(/must be strings/);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+});
+
+describe("slash menu embeds", () => {
+  const embedGroupOf = (groups: ReturnType<typeof getGroups>["groups"]) =>
+    groups.find(({ key }) => key === "embed");
+
+  it("offers only names the grammar can write", () => {
+    const Noop = () => null;
+    const { groups } = getGroups("", {
+      chart: { component: Noop, title: "Chart" },
+      "a b": { component: Noop, title: "Spaced" },
+      "": { component: Noop, title: "Empty" },
+      hidden: { component: Noop, title: "Hidden", hideFromMenu: true },
+    });
+    expect(embedGroupOf(groups)?.items.map(({ label }) => label)).toEqual(["Chart"]);
+  });
+
+  it("adds no Embeds group without a registry", () => {
+    expect(embedGroupOf(getGroups("").groups)).toBeUndefined();
   });
 });
 

@@ -13,13 +13,27 @@ import type { Processor } from "unified";
  * grammar reads any `:word` in prose as a directive and, on the way out,
  * escapes a colon before a letter (`:smile:` becomes `\:smile:`), which would
  * rewrite ordinary documents that never meant to use directives. Dropping the
- * text construct and its phrasing escape keeps every existing document
- * byte-identical; only a line that starts with `::` changes meaning.
+ * text construct and its phrasing escape leaves prose alone. Only a line that
+ * is a complete directive (`::name`, `::name[label]{attrs}`, `:::name…` and
+ * nothing after it) changes meaning, and only such a line is escaped when it
+ * is meant as text.
  *
  * Attributes come back in one canonical form: double-quoted `key="value"`
  * pairs in their written order, so `{a='x' b=y}` and `{#main .wide}` are
  * normalized (content survives) while `{a="x"}` is byte-identical.
  */
+/** A directive or container name: a letter, then letters, digits, `-` or `_`. */
+export const DIRECTIVE_NAME = /^[A-Za-z][A-Za-z0-9_-]*$/;
+
+/** An attribute key: a letter, `:` or `_`, then letters, digits, `-`, `.`, `:` or `_`. */
+export const ATTRIBUTE_KEY = /^[A-Za-z:_][A-Za-z0-9.:_-]*$/;
+
+// What follows the first `:` of a line that would parse as a leaf or container
+// directive opening: more colons, a name, an optional label and attributes,
+// then only whitespace to the end of the line.
+const DIRECTIVE_LINE_REST =
+  ":+[A-Za-z][A-Za-z0-9_-]*(?:\\[[^\\r\\n]*\\])?(?:\\{[^\\r\\n]*\\})?[\\t ]*(?=[\\r\\n]|$)";
+
 export function remarkBlockDirectives(this: Processor): void {
   const data = this.data();
   const { flow } = directive();
@@ -31,12 +45,16 @@ export function remarkBlockDirectives(this: Processor): void {
   (data.fromMarkdownExtensions ??= []).push(directiveFromMarkdown());
   (data.toMarkdownExtensions ??= []).push({
     ...toMarkdown,
-    // Keep the label line-break guards and the `::` at-break escape (a
-    // paragraph line that starts with `::` must not turn into a directive);
-    // drop the phrasing rule that only exists for text directives.
-    unsafe: (toMarkdown.unsafe ?? []).filter(
-      (rule) => !rule.inConstruct?.includes("phrasing"),
-    ),
+    unsafe: [
+      // Keep the label line-break guards; drop the phrasing rule (it exists
+      // only for text directives) and the upstream at-break rule, which
+      // escapes ANY line starting with `::` (`::: note`, `::std::cout`).
+      ...(toMarkdown.unsafe ?? []).filter(
+        (rule) => !rule.inConstruct?.includes("phrasing") && !rule.atBreak,
+      ),
+      // Escape a line only when it would really parse as a block directive.
+      { atBreak: true, character: ":", after: DIRECTIVE_LINE_REST },
+    ],
   });
 }
 

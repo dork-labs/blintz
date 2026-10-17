@@ -54,14 +54,36 @@ describe("embed directives round-trip", () => {
     expect(await roundTrip(md)).toBe(md);
   });
 
+  // Lines that start with colons but are not complete directives were
+  // escaped by the upstream serializer rule; they must come back unchanged.
+  it.each([
+    "::\n",
+    ":::\n",
+    "::::\n",
+    ":: note\n",
+    "::: note\n",
+    "::std::cout << x;\n",
+    "x\n\n:::\n\ny\n",
+    "Some text\n::: not a fence\n",
+    "::x y\n",
+    '::x{a="line1\nline2"}\n',
+  ])("leaves the colon-led prose %j byte-identical", async (md) => {
+    expect(await roundTrip(md)).toBe(md);
+  });
+
+  it("keeps a label made of inline HTML and an image", async () => {
+    const md = '::chart[<b>Q3</b> ![i](a.png)]{src="a"}\n';
+    expect(await roundTrip(md)).toBe(md);
+  });
+
   it("leaves colons in prose alone (no inline directives)", async () => {
     const md = "Emoji :smile: here, foo:bar, a:b at 10:30.\n";
     expect(await roundTrip(md)).toBe(md);
   });
 
-  it("keeps an escaped leading :: as prose, stable on a second trip", async () => {
+  it("keeps an escaped directive-shaped line as prose, stable on a second trip", async () => {
     const once = await roundTrip("\\::not-a-directive\n");
-    expect(once).toBe(":\\:not-a-directive\n");
+    expect(once).toBe("\\::not-a-directive\n");
     expect(await roundTrip(once)).toBe(once);
     const types = await withEditor(once, (e) =>
       e.action((ctx) => ctx.get(editorViewCtx).state.doc.child(0).type.name),
@@ -75,6 +97,21 @@ describe("embed directives round-trip", () => {
     );
     expect(await roundTrip("::chart{#main .wide}\n")).toBe(
       '::chart{id="main" class="wide"}\n',
+    );
+  });
+
+  it("pins how a directive line inside a paragraph splits it", async () => {
+    // A line that is a complete directive interrupts a paragraph, so prose
+    // that happened to contain one becomes an embed (content survives).
+    expect(await roundTrip("foo\n::bar\n")).toBe("foo\n\n::bar\n");
+    expect(await roundTrip("::x\ntext\n")).toBe("::x\n\ntext\n");
+  });
+
+  it("pins nested containers written with equal fences", async () => {
+    // The first bare `:::` closes the inner container AND the outer one, so the
+    // second `:::` is a stray paragraph. Its text survives as written.
+    expect(await roundTrip(":::x\n:::y\nz\n:::\n:::\n")).toBe(
+      "::::x\n:::y\nz\n:::\n::::\n\n:::\n",
     );
   });
 

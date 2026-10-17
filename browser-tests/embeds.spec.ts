@@ -58,6 +58,27 @@ test("typing inside a container embed edits its markdown", async ({ page }) => {
   await expect(text).toHaveValue(/::mystery-widget\{id="42"\}/);
 });
 
+test("Enter on an empty last line leaves a container", async ({ page }) => {
+  const { editor } = await openEmbeds(page);
+  const text = await source(page);
+  const paragraph = editor.locator(".sample-callout p").first();
+  await paragraph.click();
+  await paragraph.evaluate((p) => {
+    const range = document.createRange();
+    range.selectNodeContents(p);
+    range.collapse(false);
+    const selection = window.getSelection()!;
+    selection.removeAllRanges();
+    selection.addRange(range);
+  });
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("Outside now");
+  await expect(text).toHaveValue(
+    /inside the host's component\.\n:::\n\nOutside now\n\n::chart\{kind="pie"\}/,
+  );
+});
+
 test("the slash menu inserts a registered embed", async ({ page }) => {
   const { editor } = await openEmbeds(page, "empty");
   await editor.click();

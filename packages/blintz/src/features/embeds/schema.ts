@@ -1,7 +1,7 @@
 import type { MarkdownNode } from "@milkdown/kit/transformer";
 import { $nodeSchema } from "@milkdown/kit/utils";
 
-import type { EmbedAttributes } from "./grammar";
+import { ATTRIBUTE_KEY, DIRECTIVE_NAME, type EmbedAttributes } from "./grammar";
 
 export const embedId = "embed";
 export const embedContainerId = "embed_container";
@@ -23,22 +23,80 @@ const embedAttrs = {
   label: { default: null },
 };
 
-function cleanAttributes(
-  raw: Record<string, string | null | undefined> | null | undefined,
-): EmbedAttributes {
+/** Keep only string values under keys the directive grammar can write back. */
+export function cleanAttributes(raw: unknown): EmbedAttributes {
   const attributes: EmbedAttributes = {};
-  for (const [key, value] of Object.entries(raw ?? {})) {
-    if (typeof value === "string") attributes[key] = value;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return attributes;
+  for (const [key, value] of Object.entries(raw)) {
+    if (typeof value === "string" && ATTRIBUTE_KEY.test(key)) attributes[key] = value;
   }
   return attributes;
 }
 
-function readJson<T>(value: string | null, fallback: T): T {
-  if (!value) return fallback;
+// Pasted HTML is untrusted, so its label may only hold these phrasing nodes:
+// never raw `html` and never an unknown type, so a crafted paste can neither
+// inject HTML nor make the document unserializable. Labels parsed from the
+// author's own markdown keep every node type; they came from the grammar.
+const PASTE_LABEL_NODES = new Set([
+  "text",
+  "emphasis",
+  "strong",
+  "delete",
+  "inlineCode",
+  "inlineMath",
+  "link",
+  "break",
+]);
+
+/**
+ * Copy label nodes without `position` / `data`, so the same label parsed at a
+ * different offset is equal (source mapping compares re-parsed documents).
+ * Returns `null` for anything that is not a well-formed phrasing array; with
+ * `untrusted`, also for any node type outside the paste allow-list.
+ */
+export function cleanLabel(raw: unknown, untrusted = false): MarkdownNode[] | null {
+  if (!Array.isArray(raw) || raw.length === 0) return null;
+  const nodes: MarkdownNode[] = [];
+  for (const item of raw) {
+    const node = cleanLabelNode(item, untrusted);
+    if (!node) return null;
+    nodes.push(node);
+  }
+  return nodes;
+}
+
+function cleanLabelNode(raw: unknown, untrusted: boolean): MarkdownNode | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const source = raw as Record<string, unknown>;
+  if (typeof source.type !== "string") return null;
+  if (untrusted && !PASTE_LABEL_NODES.has(source.type)) return null;
+  const node: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(source)) {
+    if (key === "position" || key === "data") continue;
+    if (key === "children") {
+      if (!Array.isArray(value)) return null;
+      const children: MarkdownNode[] = [];
+      for (const child of value) {
+        const clean = cleanLabelNode(child, untrusted);
+        if (!clean) return null;
+        children.push(clean);
+      }
+      node.children = children;
+    } else if (untrusted && value !== null && typeof value !== "string") {
+      return null;
+    } else {
+      node[key] = value;
+    }
+  }
+  return node as MarkdownNode;
+}
+
+function readJson(value: string | null): unknown {
+  if (!value) return null;
   try {
-    return JSON.parse(value) as T;
+    return JSON.parse(value);
   } catch {
-    return fallback;
+    return null;
   }
 }
 
@@ -51,11 +109,14 @@ function domAttrs(type: string, attrs: Record<string, unknown>) {
   };
 }
 
+/** Pasted HTML is untrusted: an invalid name refuses the element outright. */
 function parseDomAttrs(dom: HTMLElement) {
+  const name = dom.getAttribute("data-name") ?? "";
+  if (!DIRECTIVE_NAME.test(name)) return false;
   return {
-    name: dom.getAttribute("data-name") ?? "",
-    attributes: readJson<EmbedAttributes>(dom.getAttribute("data-attributes"), {}),
-    label: readJson<MarkdownNode[] | null>(dom.getAttribute("data-label"), null),
+    name,
+    attributes: cleanAttributes(readJson(dom.getAttribute("data-attributes"))),
+    label: cleanLabel(readJson(dom.getAttribute("data-label")), true),
   };
 }
 
@@ -82,11 +143,10 @@ export const embedSchema = $nodeSchema(embedId, () => ({
   parseMarkdown: {
     match: (node) => node.type === "leafDirective",
     runner: (state, node, type) => {
-      const children = node.children ?? [];
       state.addNode(type, {
         name: node.name as string,
-        attributes: cleanAttributes(node.attributes as never),
-        label: children.length > 0 ? children : null,
+        attributes: cleanAttributes(node.attributes),
+        label: cleanLabel(node.children),
       });
     },
   },
@@ -110,8 +170,9 @@ export const embedSchema = $nodeSchema(embedId, () => ({
 export const embedContainerSchema = $nodeSchema(embedContainerId, () => ({
   group: "block",
   content: "block+",
+  // Not `isolating`: like a blockquote, Enter on an empty last line (and
+  // Backspace at the start) lifts out of the container.
   defining: true,
-  isolating: true,
   draggable: true,
   attrs: embedAttrs,
   parseDOM: [
@@ -136,8 +197,8 @@ export const embedContainerSchema = $nodeSchema(embedContainerId, () => ({
         (head.data as { directiveLabel?: boolean } | undefined)?.directiveLabel === true;
       state.openNode(type, {
         name: node.name as string,
-        attributes: cleanAttributes(node.attributes as never),
-        label: hasLabel ? (head.children ?? []) : null,
+        attributes: cleanAttributes(node.attributes),
+        label: hasLabel ? cleanLabel(head.children) : null,
       });
       state.next(hasLabel ? children.slice(1) : children);
       state.closeNode();
