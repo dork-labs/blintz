@@ -111,15 +111,10 @@ function opensDirective(line: string): boolean {
   return node?.type === "leafDirective" || node?.type === "containerDirective";
 }
 
-// Parents whose paragraphs start a line of flow content. A paragraph
-// anywhere else (a table cell) is mid-line, so it can never open a directive.
-const FLOW_PARENTS = new Set([
-  "root",
-  "blockquote",
-  "listItem",
-  "containerDirective",
-  "footnoteDefinition",
-]);
+// A table cell's paragraph is mid-line, so it can never open a directive.
+// Every other parent (including block containers added by plugins) is
+// treated as flow, which errs toward escaping.
+const MID_LINE_PARENTS = new Set(["tableCell"]);
 
 // Cheap pre-check before re-parsing: some line starts with `::` then a
 // non-space, non-colon character (every directive opening does).
@@ -136,7 +131,7 @@ const MAY_OPEN_DIRECTIVE = /^[ \t]*::+[^\s:]/m;
 function guardParagraph(inner: Handle): Handle {
   return (node, parent, state, info) => {
     const value = inner(node as Paragraph, parent, state, info) as string;
-    if (!FLOW_PARENTS.has(parent?.type ?? "root")) return value;
+    if (parent && MID_LINE_PARENTS.has(parent.type)) return value;
     if (!MAY_OPEN_DIRECTIVE.test(value)) return value;
     const reparsed = parseFlow(value);
     if (reparsed.length === 1 && reparsed[0]?.type === "paragraph") return value;

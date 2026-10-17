@@ -95,6 +95,8 @@ const tree = unified().use(remarkParse).use(remarkBlockDirectives).parse(markdow
 // `leafDirective` and `containerDirective` nodes carry `name` and `attributes`.
 ```
 
+When writing markdown, `remarkBlockDirectives` wraps the paragraph handler so text that looks like a directive stays text. Register any plugin with its own paragraph handler *before* it, so the guard wraps that handler instead of being replaced.
+
 ## Why Blintz
 
 Milkdown's [Crepe](https://milkdown.dev) is its ready-made editor on top of ProseMirror. Crepe builds its UI (toolbars, menus, node views) in Vue, so dropping it into a React app means bundling and bridging a second framework. Blintz gives you the same editing experience in React, and it treats markdown as the source of truth, so what you type comes back as clean markdown when you save (handy when you store the markdown).
