@@ -213,6 +213,7 @@ function mapThrough(previous: CommentsState, tr: Transaction, display: CommentsD
   const deletedAt = new Map([...previous.deletedAt].map(([id, pos]) => [id, mapping.map(pos, -1)]));
   const reset = isHostReset(tr);
   let model: ReturnType<typeof docText> | undefined;
+  let beforeModel: ReturnType<typeof docText> | undefined;
   for (const [id, range] of previous.ranges) {
     // Typing at either edge does not extend a comment.
     const from = mapping.map(range.from, 1);
@@ -265,6 +266,14 @@ function mapThrough(previous: CommentsState, tr: Transaction, display: CommentsD
         kind === "deleted" && !reset && exact
           ? restoredAt(model, anchor, deletedAt.get(id))
           : locateDetailed(tr.doc, anchor, model);
+      // After a change too big to diff, a deleted thread returns only if its
+      // words came back with it, never to a copy that was there all along.
+      const wasThere = () => {
+        beforeModel ??= docText(tr.before);
+        const before = locateDetailed(tr.before, anchor, beforeModel);
+        return before !== null && enoughContext(before, "deleted");
+      };
+      if (kind === "deleted" && !reset && !exact && found && wasThere()) continue;
       if (found && (reset || enoughContext(found, kind))) {
         ranges.set(id, found);
         orphaned.delete(id);

@@ -289,3 +289,17 @@ it("restores a thread when a write too big to diff is reverted", async () => {
   await act(async () => applyMarkdownToYDoc(model, server, bigDoc("alpha", middle)));
   await waitFor(() => host!.querySelector('[data-comment-id="t"]')?.textContent === "Friday", 10000);
 }, 30000);
+
+it("never attaches a deleted thread to a copy that was there all along on a write too big to diff", async () => {
+  const sentence = "We agreed that the launch is on Friday, after the final review is done.";
+  const { model, server, view, api } = await mountWithThread(bigDoc("alpha", sentence, sentence), "Friday");
+  // Delete the commented word locally: the thread is orphaned.
+  const range = api().rangeOf("t")!;
+  await act(async () => view().dispatch(view().state.tr.delete(range.from, range.to)));
+  await waitFor(() => api().rangeOf("t") === null);
+  // An unrelated big write leaves the deletion and the other copy as they were.
+  const edited = "We agreed that the launch is on , after the final review is done.";
+  await act(async () => applyMarkdownToYDoc(model, server, bigDoc("beta", edited, sentence)));
+  await waitFor(() => host!.textContent!.includes("Line 0 beta"), 10000);
+  expect(api().rangeOf("t")).toBeNull();
+}, 30000);
