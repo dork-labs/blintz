@@ -16,7 +16,8 @@ import { diagramErrorHtml, renderMermaid, type MermaidLoader, type MermaidModule
 Range.prototype.getClientRects ??= () => Object.assign([], { item: () => null }) as unknown as DOMRectList;
 Range.prototype.getBoundingClientRect ??= () => new DOMRect();
 
-function fakeMermaid(delays: Record<string, number> = {}) {
+/** `delays`: per diagram, milliseconds, or a promise the render waits for. */
+function fakeMermaid(delays: Record<string, number | Promise<unknown>> = {}) {
   let theme = "";
   const calls: Array<{ theme: string; text: string }> = [];
   const module: MermaidModule = {
@@ -28,7 +29,8 @@ function fakeMermaid(delays: Record<string, number> = {}) {
       const scratch = document.createElement("div");
       scratch.id = `d${id}`;
       document.body.append(scratch);
-      await new Promise((resolve) => setTimeout(resolve, delays[text] ?? 0));
+      const delay = delays[text] ?? 0;
+      await (typeof delay === "number" ? new Promise((resolve) => setTimeout(resolve, delay)) : delay);
       if (text.includes("bad")) throw new Error("Parse error on line 1: <script>");
       return { svg: `<svg data-theme="${theme}" data-text="${text}"><g></g></svg>` };
     },
@@ -193,16 +195,25 @@ describe("<MarkdownEditor mermaid>", () => {
   });
 
   it("never shows an older render that finishes after the diagram changed", async () => {
-    const { module } = fakeMermaid({ "graph A": 40, "graph B": 200 });
+    // Each render finishes only when the test says so, however slow the machine.
+    let finishA = () => {};
+    let finishB = () => {};
+    const { module, calls } = fakeMermaid({
+      "graph A": new Promise<void>((resolve) => (finishA = resolve)),
+      "graph B": new Promise<void>((resolve) => (finishB = resolve)),
+    });
     const loader: MermaidLoader = async () => module;
     const el = await mount(DIAGRAM, { mermaid: loader });
+    await waitFor(() => calls.some((call) => call.text === "graph A"));
     // Change the diagram while the first render is still running.
     await act(async () =>
       root!.render(<MarkdownEditor value={"```mermaid\ngraph B\n```\n"} mermaid={loader} />),
     );
-    // A finishes (~40 ms) while B is still drawing: A must not appear.
-    await act(async () => new Promise((resolve) => setTimeout(resolve, 120)));
+    // A finishes while B is pending: A must not appear.
+    await act(async () => finishA());
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 50)));
     expect(el.querySelector('.preview svg[data-text="graph A"]')).toBeNull();
+    finishB();
     await waitFor(() => el.querySelector(".preview svg")?.getAttribute("data-text") === "graph B");
   });
 });
