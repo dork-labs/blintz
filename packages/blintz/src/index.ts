@@ -14,6 +14,26 @@ export type { MarkdownEditorProps } from "./MarkdownEditor";
 
 export type { BlintzPlugin, BlintzPluginContext } from "./plugin";
 
+// Embeds: block directives (`::name{…}`, `:::name … :::`) rendered by
+// host-registered components. The editor-free grammar and validator also ship
+// on their own as `blintz/directives`.
+export type {
+  EmbedDefinition,
+  EmbedProps,
+  EmbedRegistry,
+} from "./features/embeds/registry";
+export {
+  remarkBlockDirectives,
+  validateEmbedAttributes,
+} from "./directives";
+export type {
+  EmbedAttributes,
+  EmbedIssue,
+  EmbedValidationResult,
+  EmbedValidator,
+  StandardSchemaV1,
+} from "./directives";
+
 // For plugin view components: read the live Milkdown `Ctx` (commands, config)
 // from inside a node/plugin view rendered under <MarkdownEditor>.
 export { useEditorCtx } from "./shared/editor-ctx";

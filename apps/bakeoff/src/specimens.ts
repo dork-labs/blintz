@@ -176,6 +176,25 @@ A long link: [https://example.com/a/long/path/that/keeps/going/without/any/space
 AnUnbrokenWordThatIsDeliberatelyLongEnoughToChallengeTheLayoutOnASmallPhoneWithoutForcingTheEntirePageToScrollSideways.
 `,
   },
+  embeds: {
+    label: "Live embeds",
+    markdown: `# Quarterly review
+
+A chart the host renders from a directive:
+
+::chart[Tasks closed]{kind="bar" values="12,19,7,24"}
+
+:::callout{tone="note"}
+Containers keep **editable markdown** inside the host's component.
+:::
+
+::chart{kind="pie"}
+
+::mystery-widget{id="42"}
+
+Directives stay plain text, so agents can read and write them.
+`,
+  },
   empty: { label: "A blank page", markdown: "" },
 } as const;
 

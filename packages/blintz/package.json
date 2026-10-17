@@ -2,7 +2,7 @@
   "name": "blintz",
   "version": "0.7.2",
   "type": "module",
-  "description": "Blintz — a Vue-free React port of Milkdown's Crepe editor: the polished WYSIWYG markdown UX (slash menu, block drag handle, selection toolbar, rich node views) rebuilt as React components, with clean markdown round-tripping.",
+  "description": "Blintz \u2014 a Vue-free React port of Milkdown's Crepe editor: the polished WYSIWYG markdown UX (slash menu, block drag handle, selection toolbar, rich node views) rebuilt as React components, with clean markdown round-tripping.",
   "keywords": [
     "markdown",
     "markdown-editor",
@@ -29,6 +29,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./directives": {
+      "types": "./dist/directives.d.ts",
+      "import": "./dist/directives.js"
     },
     "./styles.css": "./dist/blintz.css"
   },
@@ -60,18 +64,23 @@
     "@codemirror/state": "^6.7.4",
     "@codemirror/view": "^6.43.11",
     "@floating-ui/dom": "^1.8.0",
+    "@lezer/highlight": "^1.2.3",
     "@milkdown/kit": "^7.22.1",
     "@milkdown/react": "^7.22.1",
     "@prosemirror-adapter/react": "0.5.5",
+    "@types/mdast": "^4.0.4",
     "codemirror": "^6.0.2",
     "dompurify": "^3.4.15",
     "katex": "^0.17.0",
     "lucide-static": "^1.21.0",
+    "mdast-util-directive": "^3.1.1",
+    "mdast-util-to-string": "^4.0.0",
+    "micromark-extension-directive": "^4.0.0",
     "prosemirror-virtual-cursor": "^0.4.2",
     "remark-frontmatter": "^5.0.0",
     "remark-math": "^6.0.0",
-    "unist-util-visit": "^5.0.0",
-    "@lezer/highlight": "^1.2.3"
+    "unified": "^11.0.5",
+    "unist-util-visit": "^5.0.0"
   },
   "devDependencies": {
     "@types/react": "^19.2.0",

@@ -17,11 +17,14 @@ import {
 import { createTable } from "@milkdown/kit/preset/gfm";
 
 import { imageBlockSchema } from "../image-block/schema";
+import type { EmbedRegistry } from "../embeds/registry";
+import { embedContainerSchema, embedSchema } from "../embeds/schema";
 import { GroupBuilder, type MenuItemGroup } from "../../shared/group-builder";
 import {
   bulletListIcon,
   codeIcon,
   dividerIcon,
+  embedIcon,
   functionsIcon,
   h1Icon,
   h2Icon,
@@ -59,7 +62,7 @@ export type SlashMenuItem = {
  * After building, items get a flat `index` and groups a `[start, end)` `range`
  * (used by keyboard nav) — assigned by mutation, same as Crepe.
  */
-export function getGroups(filter: string) {
+export function getGroups(filter: string, embeds: EmbedRegistry = {}) {
   const groupBuilder = new GroupBuilder<SlashMenuItem>();
 
   const textGroup = groupBuilder.addGroup("text", "Text");
@@ -208,6 +211,40 @@ export function getGroups(filter: string) {
       });
     },
   });
+
+  // Host-registered embeds (the `embeds` prop), in registration order.
+  const embedEntries = Object.entries(embeds).filter(
+    ([, definition]) => !definition.hideFromMenu,
+  );
+  if (embedEntries.length > 0) {
+    const embedGroup = groupBuilder.addGroup("embed", "Embeds");
+    for (const [name, definition] of embedEntries) {
+      embedGroup.addItem(`embed:${name}`, {
+        label: definition.title ?? name,
+        icon: definition.icon ?? embedIcon,
+        onRun: (ctx) => {
+          const commands = ctx.get(commandsCtx);
+          const attrs = {
+            name,
+            attributes: { ...(definition.defaultAttributes ?? {}) },
+            label: null,
+          };
+          commands.call(clearTextInCurrentBlockCommand.key);
+          if (definition.kind === "container") {
+            commands.call(wrapInBlockTypeCommand.key, {
+              nodeType: embedContainerSchema.type(ctx),
+              attrs,
+            });
+          } else {
+            commands.call(addBlockTypeCommand.key, {
+              nodeType: embedSchema.type(ctx),
+              attrs,
+            });
+          }
+        },
+      });
+    }
+  }
 
   let groups = groupBuilder.build();
 
