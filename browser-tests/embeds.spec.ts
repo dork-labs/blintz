@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Locator, type Page } from "@playwright/test";
 
 async function openEmbeds(page: Page, specimen = "embeds", theme = "light") {
   const errors: string[] = [];
@@ -7,6 +7,17 @@ async function openEmbeds(page: Page, specimen = "embeds", theme = "light") {
   const editor = page.locator(".ProseMirror");
   await expect(editor).toBeVisible();
   return { editor, errors };
+}
+
+/**
+ * Put the caret at a paragraph's end the way a person does: click past the
+ * end of its last line. (End only reaches a wrapped line's end, and a
+ * scripted DOM selection can race ProseMirror's selection sync.)
+ */
+async function caretAtEnd(paragraph: Locator) {
+  const box = (await paragraph.boundingBox())!;
+  await paragraph.click({ position: { x: box.width - 1, y: box.height - 4 } });
+  await paragraph.page().keyboard.press("End");
 }
 
 async function source(page: Page) {
@@ -39,16 +50,7 @@ test("typing inside a container embed edits its markdown", async ({ page }) => {
   const { editor } = await openEmbeds(page);
   const text = await source(page);
   const paragraph = editor.locator(".sample-callout p").first();
-  await paragraph.click();
-  // Put the caret at the paragraph's end (End only reaches a wrapped line's end).
-  await paragraph.evaluate((p) => {
-    const range = document.createRange();
-    range.selectNodeContents(p);
-    range.collapse(false);
-    const selection = window.getSelection()!;
-    selection.removeAllRanges();
-    selection.addRange(range);
-  });
+  await caretAtEnd(paragraph);
   await page.keyboard.type(" Still here.");
   await expect(text).toHaveValue(
     /:::callout\{tone="note"\}\nContainers keep \*\*editable markdown\*\* inside the host's component\. Still here\.\n:::/,
@@ -62,15 +64,7 @@ test("Enter on an empty last line leaves a container", async ({ page }) => {
   const { editor } = await openEmbeds(page);
   const text = await source(page);
   const paragraph = editor.locator(".sample-callout p").first();
-  await paragraph.click();
-  await paragraph.evaluate((p) => {
-    const range = document.createRange();
-    range.selectNodeContents(p);
-    range.collapse(false);
-    const selection = window.getSelection()!;
-    selection.removeAllRanges();
-    selection.addRange(range);
-  });
+  await caretAtEnd(paragraph);
   await page.keyboard.press("Enter");
   await page.keyboard.press("Enter");
   await page.keyboard.type("Outside now");
