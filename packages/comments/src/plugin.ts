@@ -7,6 +7,7 @@ import {
   anchorFromRange,
   docText,
   locateAnchor,
+  offsetAt,
   positionAt,
   type AnchorMatch,
   type CommentAnchor,
@@ -48,6 +49,8 @@ export interface CommentsState {
    * so both this and `lastAnchors` are tried.
    */
   deletedAnchors: Map<string, CommentAnchor>;
+  /** Where each deleted thread's words were, mapped through later edits. */
+  deletedAt: Map<string, number>;
   decorations: DecorationSet;
 }
 
@@ -131,10 +134,10 @@ function sync(previous: CommentsState, doc: Node, display: CommentsDisplay): Com
     if (found) ranges.set(thread.id, found);
     else orphaned.set(thread.id, "missing");
   }
-  const deletedAnchors = new Map(
-    [...previous.deletedAnchors].filter(([id]) => orphaned.get(id) === "deleted"),
-  );
-  const next = { ranges, orphaned, anchorKeys, lastAnchors, deletedAnchors };
+  const keep = <T,>(map: Map<string, T>) => new Map([...map].filter(([id]) => orphaned.get(id) === "deleted"));
+  const deletedAnchors = keep(previous.deletedAnchors);
+  const deletedAt = keep(previous.deletedAt);
+  const next = { ranges, orphaned, anchorKeys, lastAnchors, deletedAnchors, deletedAt };
   return { ...next, decorations: decorate(doc, next, display) };
 }
 
@@ -145,6 +148,36 @@ function sync(previous: CommentsState, doc: Node, display: CommentsDisplay): Com
  */
 function isHostReset(tr: Transaction): boolean {
   return tr.getMeta(DOCUMENT_RESET_META) === true;
+}
+
+/**
+ * A deleted thread comes back only where its words were: the anchor's quote
+ * sits exactly at the (mapped) deletion point, with its full context. An
+ * identical copy elsewhere never counts.
+ */
+function restoredAt(
+  model: ReturnType<typeof docText>,
+  anchor: CommentAnchor,
+  pos: number | undefined,
+): (LiveRange & { context: number; fullContext: number }) | null {
+  if (pos === undefined) return null;
+  const at = offsetAt(model, pos);
+  const { text } = model;
+  const { quote, prefix, suffix } = anchor;
+  // Undo puts the words back at the deletion point; depending on how history
+  // merged the steps, that point lands at their start or at their end.
+  for (const start of [at, at - quote.length]) {
+    if (start < 0 || text.slice(start, start + quote.length) !== quote) continue;
+    const before = text.slice(Math.max(0, start - prefix.length), start);
+    const after = text.slice(start + quote.length, start + quote.length + suffix.length);
+    if (before !== prefix || after !== suffix) continue;
+    const from = positionAt(model, start, "start");
+    const to = positionAt(model, start + quote.length, "end");
+    if (from === null || to === null || from >= to) continue;
+    const fullContext = prefix.length + suffix.length;
+    return { from, to, match: "exact", context: fullContext, fullContext };
+  }
+  return null;
 }
 
 /** A located range is good enough to re-attach a thread during editing. */
@@ -159,6 +192,8 @@ function mapThrough(previous: CommentsState, tr: Transaction, display: CommentsD
   const orphaned = new Map(previous.orphaned);
   const lastAnchors = new Map(previous.lastAnchors);
   const deletedAnchors = new Map(previous.deletedAnchors);
+  // Keep each deletion point on the spot where undo would put the words back.
+  const deletedAt = new Map([...previous.deletedAt].map(([id, pos]) => [id, tr.mapping.map(pos, -1)]));
   const reset = isHostReset(tr);
   let model: ReturnType<typeof docText> | undefined;
   for (const [id, range] of previous.ranges) {
@@ -183,6 +218,7 @@ function mapThrough(previous: CommentsState, tr: Transaction, display: CommentsD
     // re-attach it to the same words elsewhere.
     const fresh = anchorFromRange(tr.before, range.from, range.to);
     if (fresh) deletedAnchors.set(id, fresh);
+    deletedAt.set(id, from);
     orphaned.set(id, "deleted");
   }
   // Orphans get another chance on every change: anywhere their anchor fits
@@ -193,16 +229,20 @@ function mapThrough(previous: CommentsState, tr: Transaction, display: CommentsD
     );
     model ??= docText(tr.doc);
     for (const anchor of candidates) {
-      const found = locateDetailed(tr.doc, anchor, model);
+      const found =
+        kind === "deleted" && !reset
+          ? restoredAt(model, anchor, deletedAt.get(id))
+          : locateDetailed(tr.doc, anchor, model);
       if (found && (reset || enoughContext(found, kind))) {
         ranges.set(id, found);
         orphaned.delete(id);
         deletedAnchors.delete(id);
+        deletedAt.delete(id);
         break;
       }
     }
   }
-  const next = { ...previous, ranges, orphaned, lastAnchors, deletedAnchors };
+  const next = { ...previous, ranges, orphaned, lastAnchors, deletedAnchors, deletedAt };
   return { ...next, decorations: decorate(tr.doc, next, display) };
 }
 
@@ -223,6 +263,7 @@ const EMPTY: CommentsState = {
   anchorKeys: new Map(),
   lastAnchors: new Map(),
   deletedAnchors: new Map(),
+  deletedAt: new Map(),
   decorations: DecorationSet.empty,
 };
 

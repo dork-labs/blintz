@@ -277,7 +277,10 @@ export function useBlintzEditor({
         view.dispatch(
           state.tr
             .replace(0, state.doc.content.size, new Slice(doc.content, 0, 0))
-            .setMeta(DOCUMENT_RESET_META, true),
+            .setMeta(DOCUMENT_RESET_META, true)
+            // A different document from the host isn't an edit: undo must not
+            // turn it back into the old one.
+            .setMeta("addToHistory", false),
         );
       });
       const source = sourceRef.current!;

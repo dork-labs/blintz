@@ -347,4 +347,40 @@ describe("useBlintzComments", () => {
     await act(async () => void undo(view().state, view().dispatch));
     await waitFor(() => highlighted(el, "t") === "Marketing");
   });
+
+  it("never re-attaches a deleted thread to an identical copy of its words elsewhere", async () => {
+    // Four identical paragraphs: the 2nd and 3rd copies share their full
+    // context, so only the deletion point can tell them apart.
+    const para = "Same words here. Marketing is ready for the launch.";
+    const doc = `${para}\n\n${para}\n\n${para}\n\n${para}\n\nOther.\n`;
+    await mount(doc, { threads: [] });
+    const v = view();
+    const model = docText(v.state.doc);
+    const at = model.text.indexOf("Marketing", model.text.indexOf("Marketing") + 1);
+    const from = positionAt(model, at, "start")!;
+    v.dispatch(v.state.tr.setSelection(TextSelection.create(v.state.doc, from, from + 9)));
+    const anchor = api!.anchorSelection()!;
+    await rerender(doc, { threads: [{ id: "t", anchor }] });
+    await waitFor(() => api!.rangeOf("t")?.from === from);
+    await act(async () => view().dispatch(view().state.tr.delete(from, from + 9)));
+    await waitFor(() => api!.rangeOf("t") === null);
+    const end = view().state.doc.content.size - 1;
+    await act(async () => view().dispatch(view().state.tr.insertText("x", end)));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 30)));
+    expect(api!.rangeOf("t")).toBeNull();
+  });
+
+  it("keeps threads attached after a host reset, which undo can't revert", async () => {
+    const el = await mount(DOC, { threads: [] });
+    const anchor = anchorFor("Marketing is ready");
+    const options = { threads: [{ id: "t", anchor }] };
+    await rerender(DOC, options);
+    await waitFor(() => highlighted(el, "t") === "Marketing is ready");
+    await rerender("Totally new. Marketing is ready again.\n", options);
+    await waitFor(() => view().state.doc.textContent.startsWith("Totally new"));
+    await waitFor(() => highlighted(el, "t") === "Marketing is ready");
+    await act(async () => void undo(view().state, view().dispatch));
+    expect(view().state.doc.textContent.startsWith("Totally new")).toBe(true);
+    expect(api!.rangeOf("t")).not.toBeNull();
+  });
 });
