@@ -195,6 +195,17 @@ Containers keep **editable markdown** inside the host's component.
 Directives stay plain text, so agents can read and write them.
 `,
   },
+  links: {
+    label: "Linked notes",
+    markdown: `# Weekly notes
+
+Pick up from [[Roadmap#Q4|the Q4 plan]], then check [[Team Charter]].
+
+A page that doesn't exist yet: [[Someday Maybe]].
+
+Type two square brackets to link another page.
+`,
+  },
   empty: { label: "A blank page", markdown: "" },
 } as const;
 
