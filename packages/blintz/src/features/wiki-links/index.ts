@@ -10,6 +10,7 @@ import {
   wikiLinkCodeGuard,
   wikiLinkInputRule,
   wikiLinkSchema,
+  wikiLinkSourceSync,
 } from "./schema";
 
 type NodeViewFactory = ReturnType<typeof useNodeViewFactory>;
@@ -17,7 +18,7 @@ type PluginViewFactory = ReturnType<typeof usePluginViewFactory>;
 
 /** The wiki-link grammar alone (remark plugin + node schema), no views. */
 export function wikiLinkGrammarFeature(editor: Editor): void {
-  editor.use(remarkWikiLinksPlugin).use(wikiLinkSchema);
+  editor.use(remarkWikiLinksPlugin).use(wikiLinkSchema).use(wikiLinkSourceSync);
 }
 
 /**

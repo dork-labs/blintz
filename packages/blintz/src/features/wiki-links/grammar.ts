@@ -94,7 +94,13 @@ export function stringifyWikiLink(link: WikiLink, escapePipes = false): string {
   const body = `${link.target}${link.heading === null ? "" : `#${link.heading}`}${
     link.label === null ? "" : `|${link.label}`
   }`;
-  return `${link.embed ? "!" : ""}[[${escapePipes ? body.replace(/\|/g, "\\|") : body}]]`;
+  // In a cell, every pipe must reach GFM escaped: one after an odd run of
+  // backslashes gets one more, so `a\\` + `|` can't become `\\\\|` (an
+  // escaped backslash followed by a cell break).
+  const written = escapePipes
+    ? body.replace(/(\\*)\|/g, (_, run: string) => `${run}${run.length % 2 ? "\\" : ""}\\|`)
+    : body;
+  return `${link.embed ? "!" : ""}[[${written}]]`;
 }
 
 /**
@@ -302,15 +308,22 @@ export function wikiLinkFromMarkdown(): FromMarkdownExtension {
  * form. Inside a table cell an unescaped `|` would end the cell, so pipes
  * are escaped there.
  */
-const handleWikiLink: Handle = (node, _parent, state) => {
-  const link = node as WikiLinkNode;
-  const inCell = state.stack.includes("tableCell");
+const handleWikiLink: Handle = (node, _parent, state) =>
+  writtenWikiLink(node as WikiLinkNode, state.stack.includes("tableCell"));
+
+/**
+ * Exactly what a link is written as: its recorded source while its parts are
+ * unchanged, else the canonical form. In a table cell, pipes must be escaped
+ * (an unescaped `|` would end the cell), so a source with one is rebuilt.
+ */
+export function writtenWikiLink(link: WikiLink & { value?: string }, inCell: boolean): string {
   const source = sourceIfUnchanged(link);
   if (source !== null && !(inCell && UNESCAPED_PIPE.test(source))) return source;
   return stringifyWikiLink(link, inCell);
-};
+}
 
-const UNESCAPED_PIPE = /(^|[^\\])\|/;
+// A pipe after an even number of backslashes (`|`, `\\\\|`) is a real pipe.
+const UNESCAPED_PIPE = /(^|[^\\])(\\\\)*\|/;
 
 /** The node's recorded source, when it still parses into the node's parts. */
 export function sourceIfUnchanged(link: WikiLink & { value?: string }): string | null {

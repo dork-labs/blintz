@@ -6,6 +6,7 @@ import {
   isWritableWikiLink,
   parseWikiLinkSource,
   sourceIfUnchanged,
+  writtenWikiLink,
   remarkWikiLinks,
   stringifyWikiLink,
   type WikiLink,
@@ -158,6 +159,38 @@ export const wikiLinkCodeGuard = $prose(
           }
         });
         return tr;
+      },
+    }),
+);
+
+const TABLE_CELLS = new Set(["table_cell", "table_header"]);
+
+/**
+ * Keeps every link's `source` equal to exactly what it will be written as
+ * (new, pasted, edited or moved links included), so a document re-parsed from
+ * its own saved markdown equals the live one and source mapping holds.
+ */
+export const wikiLinkSourceSync = $prose(
+  () =>
+    new Plugin({
+      key: new PluginKey("blintz-wiki-link-source"),
+      appendTransaction(transactions, _old, state) {
+        if (!transactions.some((tr) => tr.docChanged)) return null;
+        let tr = null as ReturnType<typeof state.tr.setNodeAttribute> | null;
+        state.doc.descendants((node, pos, parent) => {
+          if (node.type.name !== wikiLinkId) return;
+          const inCell = !!parent && TABLE_CELLS.has(state.doc.resolve(pos).node(-1)?.type.name ?? "");
+          const link = wikiLinkFromAttrs(node.attrs);
+          const written = writtenWikiLink(
+            { ...link, value: typeof node.attrs.source === "string" ? node.attrs.source : undefined },
+            inCell,
+          );
+          if (node.attrs.source !== written) {
+            tr ??= state.tr;
+            tr.setNodeAttribute(pos, "source", written);
+          }
+        });
+        return tr?.setMeta("addToHistory", false) ?? null;
       },
     }),
 );

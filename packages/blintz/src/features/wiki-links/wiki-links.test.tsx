@@ -350,6 +350,47 @@ describe("wiki links and the editor's other contracts", () => {
     expect(h.port.bindSource(saved, h.port.generation()).kind).toBe("mapped");
   });
 
+  const mapsAfterSave = (h: Awaited<ReturnType<typeof fixture>>) => {
+    const saved = h.editor.action(getMarkdown());
+    return { saved, kind: h.port.bindSource(saved, h.port.generation()).kind };
+  };
+
+  it("bindSource maps after inserting a link with no source (menu)", async () => {
+    const h = await fixture("Go\n");
+    const type = h.view.state.schema.nodes.wiki_link!;
+    h.view.dispatch(h.view.state.tr.insert(3, type.create({ target: "Roadmap" })));
+    expect(mapsAfterSave(h)).toEqual({ saved: "Go[[Roadmap]]\n", kind: "mapped" });
+  });
+
+  it("bindSource maps after pasting a link", async () => {
+    const h = await fixture("x  y\n");
+    paste(h.view, '<a data-type="wiki-link" data-target="a" data-label="b">t</a>');
+    expect(mapsAfterSave(h).kind).toBe("mapped");
+  });
+
+  it("bindSource maps after editing a link's target", async () => {
+    const h = await fixture("x [[a|b]] y\n");
+    let at = -1;
+    h.view.state.doc.descendants((node, pos) => {
+      if (node.type.name === "wiki_link") at = pos;
+    });
+    h.view.dispatch(h.view.state.tr.setNodeAttribute(at, "target", "z"));
+    expect(mapsAfterSave(h)).toEqual({ saved: "x [[z|b]] y\n", kind: "mapped" });
+  });
+
+  it("bindSource maps after a labelled link lands in a table cell", async () => {
+    const h = await fixture("| a |\n| - |\n| x |\n");
+    let at = -1;
+    h.view.state.doc.descendants((node, pos) => {
+      if (node.isText && node.text === "x") at = pos + 1;
+    });
+    const type = h.view.state.schema.nodes.wiki_link!;
+    h.view.dispatch(h.view.state.tr.insert(at, type.create({ target: "P", label: "al", source: "[[P|al]]" })));
+    const { saved, kind } = mapsAfterSave(h);
+    expect(saved).toContain("[[P\\|al]]");
+    expect(kind).toBe("mapped");
+  });
+
   function paste(view: EditorView, html: string) {
     const dom = document.createElement("div");
     dom.innerHTML = html;

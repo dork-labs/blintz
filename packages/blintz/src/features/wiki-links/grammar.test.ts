@@ -95,6 +95,27 @@ describe("wiki link grammar", () => {
     expect(cell).toMatchObject({ type: "wikiLink", target: "Page", label: "alias" });
   });
 
+  it("treats a pipe after an escaped backslash as a real pipe in a cell", () => {
+    const link = { type: "wikiLink", value: "[[a\\\\|b]]", target: "a\\", heading: null, label: "b", embed: false };
+    const tree = {
+      type: "root",
+      children: [
+        {
+          type: "table",
+          children: [
+            { type: "tableRow", children: [{ type: "tableCell", children: [{ type: "text", value: "a" }] }] },
+            { type: "tableRow", children: [{ type: "tableCell", children: [link] }] },
+          ],
+        },
+      ],
+    };
+    const out = processor.stringify(tree as never);
+    expect(out).not.toContain("[[a\\\\|b]]");
+    const rows = (processor.parse(out) as never as { children: Array<{ children: Array<{ children: unknown[] }> }> })
+      .children[0]!.children;
+    expect(rows.map((row) => row.children.length)).toEqual([1, 1]);
+  });
+
   it("keeps text after a link that only looks like a reference", () => {
     const md = "[[a]][x]\n";
     const out = roundTrip(md);
