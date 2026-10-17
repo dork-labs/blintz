@@ -8,8 +8,9 @@ permissions:
 jobs:
   verify:
     # Approved screenshots use the macOS system font. Keep CI and baseline
-    # generation on the same OS; screenshot names also encode the platform.
-    runs-on: macos-14
+    # generation on the same OS (update-screenshots.yml); screenshot names
+    # also encode the platform.
+    runs-on: macos-15
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
