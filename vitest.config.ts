@@ -1,3 +1,4 @@
+import { fileURLToPath, URL } from "node:url";
 import { defineConfig } from "vitest/config";
 
 // Pure unit tests live next to the source they cover (e.g. the empty-paragraph
@@ -11,6 +12,15 @@ import { defineConfig } from "vitest/config";
 // unchanged.
 export default defineConfig({
   esbuild: { jsx: "automatic", jsxImportSource: "react" },
+  // Sibling packages (e.g. @blintz/comments) test against blintz's source.
+  resolve: {
+    alias: [
+      {
+        find: /^blintz$/,
+        replacement: fileURLToPath(new URL("./packages/blintz/src/index.ts", import.meta.url)),
+      },
+    ],
+  },
   test: {
     include: ["packages/*/src/**/*.test.{ts,tsx}"],
     environment: "node",

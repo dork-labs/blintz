@@ -1,0 +1,19 @@
+/* Comment highlights. Colors use the editor's palette variables so they
+ * follow light and dark; overlapping threads layer their tints. */
+
+.milkdown .blintz-comment {
+  background: color-mix(in srgb, #f5b301 22%, transparent);
+  border-bottom: 2px solid color-mix(in srgb, #f5b301 70%, transparent);
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+.milkdown .blintz-comment.is-active {
+  background: color-mix(in srgb, #f5b301 45%, transparent);
+  border-bottom-color: #d99a00;
+}
+
+.milkdown .blintz-comment.is-resolved {
+  background: transparent;
+  border-bottom: 1px dashed color-mix(in srgb, var(--crepe-color-on-surface-variant) 60%, transparent);
+}

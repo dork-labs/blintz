@@ -39,6 +39,9 @@ export interface MarkdownSourcePort {
   generation(): string;
   snapshot(): SourceLocationResult<SourceSnapshot>;
   selection(generation?: string): SourceLocationResult<SourceSelection>;
+  /** Map any model range `[from, to)` to raw ranges, with the same evidence
+   * rules as `selection` (e.g. a comment's range, for an agent to quote). */
+  range(from: number, to: number, generation?: string): SourceLocationResult<SourceSelection>;
   taskAt(
     modelPosition: number,
     generation?: string,

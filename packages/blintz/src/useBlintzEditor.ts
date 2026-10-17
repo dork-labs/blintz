@@ -159,7 +159,15 @@ export function useBlintzEditor({
       })
       // commonmark, minus its empty-line `<br />` round-trip hack (we store
       // clean markdown), plus a parse-time strip of legacy `<br />` artifacts.
-      .use(sourceEditorAssembly(source, pluginsRef.current ?? [], true))
+      .use(
+        sourceEditorAssembly(
+          source,
+          // Plugins that declare they leave the document model alone don't
+          // count as extensions for source mapping.
+          (pluginsRef.current ?? []).filter((plugin) => !plugin.preservesSourceMapping),
+          true,
+        ),
+      )
       .use(stripEmptyLineBreaks)
       .use(gfm)
       .use(history)

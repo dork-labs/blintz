@@ -33,6 +33,7 @@ export class SourceController {
     generation: () => this.generation,
     snapshot: () => this.snapshot(),
     selection: (generation) => this.selection(generation),
+    range: (from, to, generation) => this.range(from, to, generation),
     taskAt: (position, generation) => this.taskAt(position, generation),
     bindSource: (text, generation) => {
       const refusal = this.refusal(generation);
@@ -209,8 +210,31 @@ export class SourceController {
     const refusal = this.refusal(generation);
     if (refusal) return refusal;
     if (!this.view) return { kind: "unavailable", reason: "unmapped" };
-    const selection = this.view.state.selection,
-      parsed = this.parsed!;
+    const { from, to, empty, anchor, head } = this.view.state.selection;
+    return this.mapRange(from, to, empty, anchor <= head ? "forward" : "backward");
+  }
+  private range(
+    from: number,
+    to: number,
+    generation?: string,
+  ): SourceLocationResult<SourceSelection> {
+    const refusal = this.refusal(generation);
+    if (refusal) return refusal;
+    if (!this.view) return { kind: "unavailable", reason: "unmapped" };
+    const size = this.view.state.doc.content.size;
+    if (!Number.isInteger(from) || !Number.isInteger(to) || from < 0 || to > size || from > to)
+      return { kind: "unavailable", reason: "unmapped" };
+    return this.mapRange(from, to, from === to, "forward");
+  }
+  /** Map a model range to raw ranges; every text unit needs parser-origin evidence. */
+  private mapRange(
+    from: number,
+    to: number,
+    empty: boolean,
+    direction: SourceSelection["direction"],
+  ): SourceLocationResult<SourceSelection> {
+    const selection = { from, to, empty };
+    const parsed = this.parsed!;
     const spans = parsed.texts.filter(
       (span) => span.to >= selection.from && span.from <= selection.to,
     );
@@ -231,7 +255,7 @@ export class SourceController {
     // Every selected text unit must have direct parser-origin evidence.
     let selectedText = 0,
       unsupportedLeaf = false;
-    this.view.state.doc.nodesBetween(
+    this.view!.state.doc.nodesBetween(
       selection.from,
       selection.to,
       (node, pos) => {
@@ -257,10 +281,7 @@ export class SourceController {
     return {
       kind: "mapped",
       generation: this.generation,
-      value: {
-        ranges,
-        direction: selection.anchor <= selection.head ? "forward" : "backward",
-      },
+      value: { ranges, direction },
     };
   }
   setCallbacks(callbacks: SourceCallbacks) {

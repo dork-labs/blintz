@@ -17,7 +17,8 @@
     /* Resolve the in-repo editor package from source (mirrors vite's alias). */
     "baseUrl": ".",
     "paths": {
-      "blintz": ["../../packages/blintz/src/index.ts"]
+      "blintz": ["../../packages/blintz/src/index.ts"],
+      "@blintz/comments": ["../../packages/comments/src/index.ts"]
     },
 
     /* Linting */

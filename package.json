@@ -9,7 +9,7 @@
     "examples/*"
   ],
   "scripts": {
-    "build": "npm run build -w blintz",
+    "build": "npm run build -w blintz && npm run build -w @blintz/comments",
     "dev": "npm run dev -w bakeoff",
     "bakeoff": "npm run dev -w bakeoff",
     "typecheck": "npm run typecheck --workspaces --if-present",

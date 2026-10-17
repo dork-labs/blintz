@@ -245,6 +245,12 @@ After a host confirms new raw text, call `port.bindSource(text, port.generation(
 
 The optional `sourceRevision` prop identifies an external source revision, including equal-text replacements. Changing callbacks or this revision does not remount the editor.
 
+### Mapping any range
+
+`port.range(from, to)` maps an editor range (ProseMirror positions, `[from, to)`) to raw markdown ranges, with the same evidence rules as `selection()`. For example, `@blintz/comments` gives a thread's range so an agent can quote it from the file.
+
+Any entry in `plugins` normally makes `bindSource` require an exact model match, because a plugin could change how markdown is parsed. A plugin that only adds decorations, views or key handling can say so with `preservesSourceMapping: true` (e.g. `Object.assign(myPlugin, { preservesSourceMapping: true })`); `@blintz/comments` does.
+
 ### Host-controlled tasks
 
 Pass `onTaskToggleRequest` to handle task changes outside the editor. The callback receives `{ generation, task, done }` before any local checkbox change. `task.marker` identifies the exact `[ ]`, `[x]` or `[X]` span.
