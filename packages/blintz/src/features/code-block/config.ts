@@ -15,6 +15,18 @@ import { $ctx } from "@milkdown/kit/utils";
  * Extends the upstream `CodeBlockConfig` with the Crepe-layer extras (`theme`,
  * preview toggle icon/text) so the feature's `.config()` can carry them through.
  */
+/** Context for one preview render, from the code-block view. */
+export interface PreviewOptions {
+  /** The editor's current palette; the preview re-renders when it changes. */
+  theme: "light" | "dark";
+  /** Aborted when a newer edit, language or theme supersedes this render. */
+  signal?: AbortSignal;
+  /** The first render of a block (no debounce wanted). */
+  immediate?: boolean;
+  /** The host's mermaid loader, if any. */
+  mermaid?: import("../mermaid").MermaidLoader;
+}
+
 export interface CodeBlockConfig {
   /** CodeMirror extensions (keymap, basicSetup, theme, …) merged into every CM. */
   extensions: Extension[];
@@ -32,14 +44,13 @@ export interface CodeBlockConfig {
   /**
    * Preview renderer (KaTeX for LaTeX, mermaid for diagrams). Returns sync
    * HTML/Element, or `undefined` to signal an async render that calls
-   * `applyPreview` later, or `null` for "no preview". `options.theme` is the
-   * editor's current palette; the preview re-renders when it changes.
+   * `applyPreview` later, or `null` for "no preview". See {@link PreviewOptions}.
    */
   renderPreview: (
     language: string,
     content: string,
     applyPreview: (value: null | string | HTMLElement) => void,
-    options?: { theme: "light" | "dark" },
+    options?: PreviewOptions,
   ) => void | null | string | HTMLElement;
   previewToggleButton: (previewOnlyMode: boolean) => string;
   previewLabel: string;

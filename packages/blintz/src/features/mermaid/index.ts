@@ -6,6 +6,8 @@ import { codeBlockConfig } from "../code-block/config";
 export interface MermaidModule {
   initialize(config: Record<string, unknown>): void;
   render(id: string, text: string): Promise<{ svg: string }>;
+  /** Used, when present, to keep the host's own mermaid settings intact. */
+  mermaidAPI?: { getSiteConfig?: () => object };
 }
 
 /**
@@ -15,13 +17,47 @@ export interface MermaidModule {
  */
 export type MermaidLoader = () => Promise<MermaidModule | { default: MermaidModule }>;
 
+/** How long a load or a single render may take before it is given up on. */
+const LOAD_TIMEOUT_MS = 20_000;
+const RENDER_TIMEOUT_MS = 10_000;
+/** Quiet period after an edit before a diagram is re-drawn. */
+export const DIAGRAM_DEBOUNCE_MS = 250;
+
 const loaded = new WeakMap<MermaidLoader, Promise<MermaidModule>>();
+
+function withTimeout<T>(promise: Promise<T>, ms: number, what: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${what} took longer than ${ms / 1000} s.`)), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error: unknown) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
+function asModule(value: unknown): MermaidModule {
+  const candidate =
+    value && typeof value === "object" && "default" in value && (value as { default?: unknown }).default
+      ? (value as { default: unknown }).default
+      : value;
+  const module = candidate as Partial<MermaidModule> | null | undefined;
+  if (!module || typeof module.initialize !== "function" || typeof module.render !== "function") {
+    throw new Error("The mermaid loader did not return the mermaid module.");
+  }
+  return module as MermaidModule;
+}
 
 function load(loader: MermaidLoader): Promise<MermaidModule> {
   let module = loaded.get(loader);
   if (!module) {
-    module = loader().then((value) => ("default" in value && value.default ? value.default : (value as MermaidModule)));
-    // A failed load can be retried on the next render.
+    module = withTimeout(Promise.resolve().then(loader), LOAD_TIMEOUT_MS, "Loading mermaid").then(asModule);
+    // A failed or timed-out load is retried on the next render.
     module.catch(() => loaded.delete(loader));
     loaded.set(loader, module);
   }
@@ -29,7 +65,9 @@ function load(loader: MermaidLoader): Promise<MermaidModule> {
 }
 
 // mermaid keeps one global configuration, so renders run one at a time: each
-// sets its theme, renders, and cleans up before the next starts.
+// applies Blintz's settings on top of the host's, renders, then restores the
+// host's settings. Every step is time-limited, so one stuck load or render
+// can never hold up the diagrams behind it.
 let queue: Promise<unknown> = Promise.resolve();
 let counter = 0;
 
@@ -38,26 +76,38 @@ export function renderMermaid(
   loader: MermaidLoader,
   source: string,
   theme: "light" | "dark",
+  signal?: AbortSignal,
 ): Promise<string> {
   const run = queue.then(async () => {
+    if (signal?.aborted) throw abortError();
     const mermaid = await load(loader);
+    if (signal?.aborted) throw abortError();
+    const site = mermaid.mermaidAPI?.getSiteConfig?.() as Record<string, unknown> | undefined;
     mermaid.initialize({
+      ...(site ?? {}),
       startOnLoad: false,
       securityLevel: "strict",
       theme: theme === "dark" ? "dark" : "default",
     });
     const id = `blintz-mermaid-${++counter}`;
     try {
-      const { svg } = await mermaid.render(id, source);
+      const { svg } = await withTimeout(mermaid.render(id, source), RENDER_TIMEOUT_MS, "Drawing this diagram");
       return svg;
     } finally {
       // On a syntax error mermaid leaves its scratch element in the document.
       document.getElementById(id)?.remove();
       document.getElementById(`d${id}`)?.remove();
+      if (site) mermaid.initialize(site);
     }
   });
   queue = run.catch(() => undefined);
   return run;
+}
+
+function abortError(): Error {
+  const error = new Error("Superseded by a newer edit.");
+  error.name = "AbortError";
+  return error;
 }
 
 function escapeHtml(text: string): string {
@@ -67,18 +117,21 @@ function escapeHtml(text: string): string {
 /** What a diagram that fails to load or parse shows instead. */
 export function diagramErrorHtml(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
-  return `<div class="blintz-diagram-error" role="alert"><strong>This diagram can't be drawn.</strong> <span>${escapeHtml(
+  return `<div class="blintz-diagram-error"><strong>This diagram can't be drawn.</strong> <span>${escapeHtml(
     message.split("\n").slice(0, 6).join("\n"),
   )}</span></div>`;
 }
 
 /**
  * mermaid — previews ` ```mermaid ` code blocks as diagrams, through the
- * host's loader (the `mermaid` prop). Without a loader they stay ordinary code
- * blocks. Registered after the code-block feature: it wraps that feature's
- * `renderPreview`, and every other language falls through.
+ * host's loader (the `mermaid` prop, passed in `options`). Without a loader
+ * they stay ordinary code blocks. Registered after the code-block feature: it
+ * wraps that feature's `renderPreview`, and every other language falls through.
+ *
+ * Re-draws wait for a short pause in typing, and a render that a newer edit
+ * superseded (its `signal` aborted) is skipped, not run and discarded.
  */
-export function mermaidFeature(editor: Editor, getLoader: () => MermaidLoader | undefined): void {
+export function mermaidFeature(editor: Editor): void {
   editor.config((ctx) => {
     ctx.update(codeBlockConfig.key, (prev) => ({
       ...prev,
@@ -86,12 +139,18 @@ export function mermaidFeature(editor: Editor, getLoader: () => MermaidLoader | 
         if (language.toLowerCase() !== "mermaid") {
           return prev.renderPreview(language, content, applyPreview, options);
         }
-        const loader = getLoader();
+        const loader = options?.mermaid;
         if (!loader || content.trim().length === 0) return null;
-        renderMermaid(loader, content, options?.theme ?? "light").then(
-          (svg) => applyPreview(svg),
-          (error: unknown) => applyPreview(diagramErrorHtml(error)),
-        );
+        const signal = options?.signal;
+        const timer = setTimeout(() => {
+          renderMermaid(loader, content, options?.theme ?? "light", signal).then(
+            (svg) => applyPreview(svg),
+            (error: unknown) => {
+              if ((error as Error | undefined)?.name !== "AbortError") applyPreview(diagramErrorHtml(error));
+            },
+          );
+        }, options?.immediate ? 0 : DIAGRAM_DEBOUNCE_MS);
+        signal?.addEventListener("abort", () => clearTimeout(timer), { once: true });
         return undefined;
       },
     }));

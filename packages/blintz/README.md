@@ -135,11 +135,11 @@ Pass a mermaid loader and ` ```mermaid ` code blocks are drawn as diagrams under
 <MarkdownEditor value={md} onChange={setMd} mermaid={() => import("mermaid")} />
 ```
 
-- `mermaid` is an optional peer dependency (version 10 or later); install it in your app. Blintz calls the loader the first time a diagram needs drawing, so documents without diagrams never load it, and your app can share the same copy.
-- Diagrams follow the editor's light or dark theme and re-draw when it changes. Rendering is strict (`securityLevel: "strict"`), and the SVG is sanitized before it's shown.
+- `mermaid` is an optional peer dependency (version 10 or later); install it in your app. Blintz calls the loader the first time a diagram needs drawing, so documents without diagrams never load it, and your app can share the same copy: Blintz draws with your mermaid settings (only `securityLevel` and `theme` are its own) and puts them back after each diagram.
+- Diagrams follow the editor's light or dark theme and re-draw when it changes, and when you pause typing. Rendering is strict (`securityLevel: "strict"`), the SVG is sanitized before it's shown, and a link in a diagram opens in a new tab. A load or a drawing that hangs is given up on after a few seconds, so it never holds up other diagrams.
 - A diagram with a syntax error shows the error instead.
-- The slash menu gains a **Diagram** item, and the language picker a **Mermaid** entry, so any code block can become a diagram.
-- Without `mermaid`, these blocks stay ordinary code blocks. Either way the markdown is unchanged.
+- The slash menu gains a **Diagram** item, and the language picker a `mermaid` entry, so any code block can become a diagram.
+- Without `mermaid`, these blocks stay ordinary code blocks; passing or removing it later updates them in place. Either way the markdown is unchanged.
 
 ## Why Blintz
 

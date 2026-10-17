@@ -223,8 +223,6 @@ export function getGroups(
     },
   });
 
-  // Host-registered embeds (the `embeds` prop), in registration order. A name
-  // the directive grammar cannot write back (`a b`, `""`) is never offered.
   // Diagram (mermaid): only when the host passed a mermaid loader, since
   // without one the block would stay plain code.
   if (diagrams) {
@@ -242,6 +240,8 @@ export function getGroups(
     });
   }
 
+  // Host-registered embeds (the `embeds` prop), in registration order. A name
+  // the directive grammar cannot write back (`a b`, `""`) is never offered.
   const embedEntries = Object.entries(embeds).filter(
     ([name, definition]) => !definition.hideFromMenu && isDirectiveName(name),
   );

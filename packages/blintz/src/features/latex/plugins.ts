@@ -7,7 +7,7 @@ import type { EditorState } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import type { usePluginViewFactory } from "@prosemirror-adapter/react";
 
-import { codeBlockConfig } from "../code-block/config";
+import { codeBlockConfig, type PreviewOptions } from "../code-block/config";
 import { LatexInlineEdit } from "./InlineEdit";
 import { toggleLatexCommand } from "./command";
 import { mathInlineId } from "./constants";
@@ -135,7 +135,7 @@ export function latexFeature(
           language: string,
           content: string,
           applyPreview: (value: null | string | HTMLElement) => void,
-          options?: { theme: "light" | "dark" },
+          options?: PreviewOptions,
         ) => {
           if (language.toLowerCase() === "latex" && content.length > 0) {
             return renderLatexPreview(content);

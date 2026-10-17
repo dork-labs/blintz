@@ -176,8 +176,7 @@ export function MarkdownEditor({
                       placeholder={placeholder}
                       ctxHolder={ctxHolder}
                       plugins={plugins}
-                      mermaid={mermaid}
-                      sourceRevision={sourceRevision}
+                        sourceRevision={sourceRevision}
                       onSourceReady={onSourceReady}
                       onSourceSelection={onSourceSelection}
                       onTaskToggleRequest={onTaskToggleRequest}
@@ -201,7 +200,6 @@ interface EditorInnerProps extends SourceCallbacks {
   placeholder?: string;
   ctxHolder: CtxHolder;
   plugins?: BlintzPlugin[];
-  mermaid?: MermaidLoader;
 }
 
 function EditorInner({
@@ -211,7 +209,6 @@ function EditorInner({
   placeholder,
   ctxHolder,
   plugins,
-  mermaid,
   sourceRevision,
   onSourceReady,
   onSourceSelection,
@@ -231,7 +228,6 @@ function EditorInner({
     pluginViewFactory,
     ctxHolder,
     plugins,
-    mermaid,
     sourceRevision,
     onSourceReady,
     onSourceSelection,

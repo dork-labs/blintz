@@ -29,7 +29,7 @@ import { blockEditFeature } from "./features/block-edit/plugins";
 import { codeMirrorFeature } from "./features/code-block";
 import { embedsFeature } from "./features/embeds";
 import { wikiLinksFeature } from "./features/wiki-links";
-import { mermaidFeature, type MermaidLoader } from "./features/mermaid";
+import { mermaidFeature } from "./features/mermaid";
 import { cursorFeature } from "./features/cursor";
 import { stripEmptyLineBreaks } from "./features/empty-paragraphs";
 import { frontmatterFeature } from "./features/frontmatter";
@@ -57,8 +57,6 @@ interface UseCrepeEditorArgs extends SourceCallbacks {
   ctxHolder: CtxHolder;
   /** Consumer extensions, registered after the built-in features. */
   plugins?: BlintzPlugin[];
-  /** Loads mermaid for diagram previews; read live, so it can change. */
-  mermaid?: MermaidLoader;
 }
 
 /**
@@ -82,18 +80,12 @@ export function useBlintzEditor({
   pluginViewFactory,
   ctxHolder,
   plugins,
-  mermaid,
   sourceRevision,
   onSourceReady,
   onSourceSelection,
   onTaskToggleRequest,
 }: UseCrepeEditorArgs): void {
-  // Read live by the diagram preview; published after commit, like the
-  // other callbacks, so a suspended render never leaks a loader.
-  const mermaidRef = useRef(mermaid);
-  useLayoutEffect(() => {
-    mermaidRef.current = mermaid;
-  }, [mermaid]);
+
   const sourceRef = useRef<SourceController | null>(null);
   const callbacksRef = useRef<SourceCallbacks>({});
   // Render attempts may suspend: only a committed lifecycle may publish handlers
@@ -209,7 +201,8 @@ export function useBlintzEditor({
     // After codeMirrorFeature: block-math wraps codeBlockConfig's renderPreview.
     latexFeature(editor, pluginViewFactory);
     // After codeMirrorFeature too: wraps renderPreview for ```mermaid blocks.
-    mermaidFeature(editor, () => mermaidRef.current);
+    // The loader itself arrives per render, from context (see CodeBlockView).
+    mermaidFeature(editor);
 
     // Consumer extensions last, so they layer over the built-in features (and
     // can override their config). Each gets the same seam the features use.

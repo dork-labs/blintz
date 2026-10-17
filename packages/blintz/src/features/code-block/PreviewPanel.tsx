@@ -22,9 +22,19 @@ function createSvgAwareSanitizer() {
 
   const config = {
     ADD_TAGS: ["foreignObject"],
-    ADD_ATTR: ["xmlns"],
+    ADD_ATTR: ["xmlns", "target"],
     HTML_INTEGRATION_POINTS: { foreignobject: true },
   };
+
+  // A link inside a preview (a mermaid `click` node, for one) must never
+  // navigate the host page away from unsaved work: it opens a new tab.
+  purify.addHook("afterSanitizeAttributes", (node) => {
+    const element = node as Element;
+    if (element.tagName?.toLowerCase() !== "a") return;
+    if (!element.hasAttribute("href") && !element.hasAttribute("xlink:href")) return;
+    element.setAttribute("target", "_blank");
+    element.setAttribute("rel", "noopener noreferrer");
+  });
 
   purify.addHook("uponSanitizeElement", (node, data) => {
     if (data.tagName === "foreignobject") {

@@ -44,3 +44,14 @@ test("the slash menu inserts a diagram", async ({ page }) => {
     /^```mermaid\nflowchart LR\n {2}Idea --> Draft --> Review --> Done\n```\n/,
   );
 });
+
+test("a link in a diagram opens a new tab instead of leaving the page", async ({ page }) => {
+  const { editor } = await open(page, "empty");
+  await page.getByRole("button", { name: "Markdown", exact: true }).click();
+  await page
+    .getByRole("textbox", { name: "Markdown source" })
+    .fill('```mermaid\nflowchart LR\n  A --> B\n  click A "https://example.com/away"\n```\n');
+  const link = editor.locator(".preview svg a").first();
+  await expect(link).toHaveAttribute("target", "_blank", { timeout: 15000 });
+  await expect(link).toHaveAttribute("rel", "noopener noreferrer");
+});

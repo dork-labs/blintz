@@ -2,11 +2,11 @@ import { useEffect, useState } from "react";
 import { MarkdownEditor } from "blintz";
 import { SAMPLE_EMBEDS } from "./embeds";
 import { SAMPLE_WIKI_LINKS } from "./wiki-links";
+import { SPECIMENS, type SpecimenId } from "./specimens";
+import "./playground.css";
 
 // Diagrams load mermaid only when a document has one.
 const loadMermaid = () => import("mermaid");
-import { SPECIMENS, type SpecimenId } from "./specimens";
-import "./playground.css";
 
 /** Focused, repeatable visual and interaction specimens using Blintz's public API. */
 export default function Playground() {

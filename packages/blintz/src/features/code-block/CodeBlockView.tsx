@@ -5,6 +5,7 @@ import { Icon } from "../../shared/Icon";
 import { cx } from "../../shared/cx";
 import { useEditorCtx, useEditorEditable } from "../../shared/editor-ctx";
 import { useBlintzTheme } from "../../shared/theme-ctx";
+import { useMermaidLoader } from "../mermaid/context";
 import { CopyButton } from "./CopyButton";
 import { LanguagePicker } from "./LanguagePicker";
 import { PreviewPanel } from "./PreviewPanel";
@@ -28,6 +29,8 @@ import { LanguageLoader } from "./loader";
 export function CodeBlockView() {
   const { node, view, getPos, setAttrs, selected } = useNodeViewContext();
   const theme = useBlintzTheme();
+  const mermaid = useMermaidLoader();
+  const rendered = useRef(false);
   const ctx = useEditorCtx();
   const editable = useEditorEditable(view);
   const config = ctx.get(codeBlockConfig.key);
@@ -108,13 +111,16 @@ export function CodeBlockView() {
   // again must not overwrite the newer preview.
   useEffect(() => {
     let live = true;
+    const controller = new AbortController();
+    const immediate = !rendered.current;
+    rendered.current = true;
     const result = config.renderPreview(
       language,
       text,
       (value) => {
         if (live) setPreview(value);
       },
-      { theme },
+      { theme, signal: controller.signal, immediate, mermaid },
     );
     if (result) {
       setPreview(result);
@@ -127,10 +133,11 @@ export function CodeBlockView() {
     }
     return () => {
       live = false;
+      controller.abort();
     };
     // config is stable per editor; depend on the inputs that actually change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [language, text, theme]);
+  }, [language, text, theme, mermaid]);
 
   const setLanguage = (lang: string) => {
     // Write the node attr; the controller's update() reacts to load the CM pack.

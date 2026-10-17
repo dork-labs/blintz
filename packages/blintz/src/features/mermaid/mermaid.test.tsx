@@ -77,6 +77,49 @@ describe("renderMermaid", () => {
     await expect(renderMermaid(loader, "graph A", "light")).resolves.toContain("<svg");
   });
 
+  it("keeps the host's own mermaid settings", async () => {
+    const host = { theme: "forest", securityLevel: "loose", fontFamily: "HostFont" };
+    const seen: Array<Record<string, unknown>> = [];
+    const module: MermaidModule = {
+      initialize: (config) => void seen.push(config),
+      render: async () => ({ svg: "<svg></svg>" }),
+      mermaidAPI: { getSiteConfig: () => ({ ...host }) },
+    };
+    await renderMermaid(async () => module, "graph A", "dark");
+    expect(seen[0]).toMatchObject({ fontFamily: "HostFont", securityLevel: "strict", theme: "dark" });
+    expect(seen.at(-1)).toEqual(host);
+  });
+
+  it("gives up on a stalled load so later diagrams still draw", async () => {
+    vi.useFakeTimers();
+    try {
+      const stuck: MermaidLoader = () => new Promise(() => {});
+      const { module } = fakeMermaid();
+      const first = renderMermaid(stuck, "graph A", "light");
+      const firstSettled = expect(first).rejects.toThrow(/took longer/);
+      const second = renderMermaid(async () => module, "graph B", "light");
+      await vi.advanceTimersByTimeAsync(21_000);
+      await firstSettled;
+      await expect(second).resolves.toContain('data-text="graph B"');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("skips a render whose edit was superseded", async () => {
+    const { module, calls } = fakeMermaid();
+    const controller = new AbortController();
+    controller.abort();
+    await expect(renderMermaid(async () => module, "graph A", "light", controller.signal)).rejects.toThrow(/Superseded/);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("explains a loader that returns something else", async () => {
+    await expect(renderMermaid(async () => undefined as never, "graph A", "light")).rejects.toThrow(
+      "did not return the mermaid module",
+    );
+  });
+
   it("escapes the error message", () => {
     expect(diagramErrorHtml(new Error("<script>x</script>"))).not.toContain("<script>");
   });
@@ -155,6 +198,49 @@ describe("<MarkdownEditor mermaid>", () => {
     await act(async () => new Promise((resolve) => setTimeout(resolve, 120)));
     expect(el.querySelector('.preview svg[data-text="graph A"]')).toBeNull();
     await waitFor(() => el.querySelector(".preview svg")?.getAttribute("data-text") === "graph B");
+  });
+});
+
+describe("<MarkdownEditor mermaid> while editing", () => {
+  it("draws only after typing pauses", async () => {
+    const { module, calls } = fakeMermaid();
+    const loader: MermaidLoader = async () => module;
+    const el = await mount(DIAGRAM, { mermaid: loader });
+    await waitFor(() => el.querySelector(".preview svg") !== null);
+    calls.length = 0;
+    for (const text of ["graph AB", "graph ABC", "graph ABCD"]) {
+      await act(async () =>
+        root!.render(<MarkdownEditor value={"```mermaid\n" + text + "\n```\n"} mermaid={loader} />),
+      );
+      await act(async () => new Promise((resolve) => setTimeout(resolve, 40)));
+    }
+    await waitFor(() => el.querySelector(".preview svg")?.getAttribute("data-text") === "graph ABCD");
+    expect(calls.map((call) => call.text)).toEqual(["graph ABCD"]);
+  });
+
+  it("draws existing diagrams once a loader arrives, and drops them when it goes", async () => {
+    const { module } = fakeMermaid();
+    const loader: MermaidLoader = async () => module;
+    const el = await mount(DIAGRAM, {});
+    expect(el.querySelector(".preview svg")).toBeNull();
+    await act(async () => root!.render(<MarkdownEditor value={DIAGRAM} mermaid={loader} />));
+    await waitFor(() => el.querySelector(".preview svg") !== null);
+    await act(async () => root!.render(<MarkdownEditor value={DIAGRAM} />));
+    await waitFor(() => el.querySelector(".preview-panel") === null);
+  });
+
+  it("opens links inside a diagram in a new tab", async () => {
+    const module: MermaidModule = {
+      initialize: () => {},
+      render: async () => ({
+        svg: '<svg><a xlink:href="https://example.com/x" href="https://example.com/x"><text>A</text></a></svg>',
+      }),
+    };
+    const el = await mount(DIAGRAM, { mermaid: async () => module });
+    await waitFor(() => el.querySelector(".preview a") !== null);
+    const link = el.querySelector(".preview a")!;
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.getAttribute("rel")).toBe("noopener noreferrer");
   });
 });
 

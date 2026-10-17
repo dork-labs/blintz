@@ -6,7 +6,9 @@ import { LanguageDescription, LanguageSupport, StreamLanguage } from "@codemirro
  * the picker can turn any code block into a diagram.
  */
 export const mermaidLanguage = LanguageDescription.of({
-  name: "Mermaid",
+  // The picker writes this name into the fence; renderers such as GitHub
+  // only recognize lowercase ```mermaid.
+  name: "mermaid",
   alias: ["mermaid", "mmd"],
   extensions: ["mmd", "mermaid"],
   load: async () =>
