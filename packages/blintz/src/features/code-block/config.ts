@@ -28,6 +28,9 @@ export interface PreviewOptions {
 }
 
 export interface CodeBlockConfig {
+  /** Undo and redo from inside a code block (default: ProseMirror history). */
+  undo?: import("@milkdown/kit/prose/state").Command;
+  redo?: import("@milkdown/kit/prose/state").Command;
   /** CodeMirror extensions (keymap, basicSetup, theme, …) merged into every CM. */
   extensions: Extension[];
   /** The registered CodeMirror language descriptions (the picker's list). */

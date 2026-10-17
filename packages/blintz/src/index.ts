@@ -14,6 +14,7 @@ export type { MarkdownEditorProps } from "./MarkdownEditor";
 
 export type { BlintzPlugin, BlintzPluginContext } from "./plugin";
 export { DOCUMENT_RESET_META } from "./document-reset";
+export { isCollaboratorChange } from "./remote-changes";
 
 // Embeds: block directives (`::name{…}`, `:::name … :::`) rendered by
 // host-registered components. The editor-free grammar and validator also ship

@@ -11,6 +11,9 @@
     "paths": {
       "blintz": [
         "../blintz/src/index.ts"
+      ],
+      "blintz/collab": [
+        "../blintz/src/collab.ts"
       ]
     }
   },

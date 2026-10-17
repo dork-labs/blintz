@@ -4,11 +4,13 @@ import {
   defaultValueCtx,
   editorViewCtx,
   parserCtx,
+  serializerCtx,
   editorViewOptionsCtx,
   rootCtx,
 } from "@milkdown/kit/core";
 import type { Ctx } from "@milkdown/kit/ctx";
 import { gfm } from "@milkdown/kit/preset/gfm";
+import { tableCellNullAlignment, tableHeaderNullAlignment } from "./features/table/alignment";
 import { clipboard } from "@milkdown/kit/plugin/clipboard";
 import { history } from "@milkdown/kit/plugin/history";
 import { indent } from "@milkdown/kit/plugin/indent";
@@ -24,6 +26,7 @@ import type {
 import type { CtxHolder } from "./shared/editor-ctx";
 import type { BlintzPlugin } from "./plugin";
 import { DOCUMENT_RESET_META } from "./document-reset";
+import { remoteChangesPlugin } from "./remote-changes";
 import { SourceController, type SourceCallbacks } from "./source-controller";
 import { sourceEditorAssembly } from "./source-plugin";
 import { DEFAULT_EDITABLE, editablePredicate } from "./read-only";
@@ -152,7 +155,7 @@ export function useBlintzEditor({
           editable: editablePredicate(() => editableRef.current),
         }));
         ctx.get(listenerCtx).markdownUpdated((_ctx: Ctx, md, prevMd) => {
-          if (md === prevMd) return;
+          if (md === prevMd || md === editorValueRef.current) return;
           const confirmed = source.confirmedChangeText(_ctx.get(editorViewCtx).state);
           if (confirmed !== undefined) { editorValueRef.current = confirmed; return; }
           editorValueRef.current = md;
@@ -172,11 +175,26 @@ export function useBlintzEditor({
       )
       .use(stripEmptyLineBreaks)
       .use(gfm)
-      .use(history)
+      .use(tableCellNullAlignment)
+      .use(tableHeaderNullAlignment)
+      // A plugin with its own undo (collaboration) replaces the built-in one.
+      .use((pluginsRef.current ?? []).some((plugin) => plugin.replacesHistory) ? [] : history)
       .use(indent)
       .use(clipboard)
       .use(upload)
       .use(listener);
+
+    // Collaborators' changes arrive as transactions Milkdown's listener skips
+    // (`addToHistory: false`); report them through `onChange` too, so the
+    // host's saved markdown follows the shared document.
+    editor.use(
+      remoteChangesPlugin((ctx) => {
+        const md = ctx.get(serializerCtx)(ctx.get(editorViewCtx).state.doc);
+        if (md === editorValueRef.current) return;
+        editorValueRef.current = md;
+        onChangeRef.current?.(md);
+      }),
+    );
 
     // Features (share the engine above; each registers its own views/plugins).
     // frontmatter first: pure grammar (remark + schema), nothing depends on it.
@@ -237,6 +255,9 @@ export function useBlintzEditor({
   // External value changes (e.g. "reset to seed") → push into the editor.
   useEffect(() => {
     if (loading) return;
+    // A plugin that keeps the document (collaboration) owns it: replacing it
+    // here would overwrite everyone's shared document.
+    if ((pluginsRef.current ?? []).some((plugin) => plugin.ownsDocument)) return;
     if (
       value === editorValueRef.current &&
       sourceRevision === revisionRef.current

@@ -26,6 +26,7 @@ export default defineConfig({
         index: "src/index.ts",
         directives: "src/directives.ts",
         markdown: "src/markdown.ts",
+        collab: "src/collab.ts",
       },
       formats: ["es"],
       fileName: (_format, name) => `${name}.js`,

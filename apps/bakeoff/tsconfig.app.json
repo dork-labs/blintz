@@ -18,6 +18,7 @@
     "baseUrl": ".",
     "paths": {
       "blintz": ["../../packages/blintz/src/index.ts"],
+      "blintz/collab": ["../../packages/blintz/src/collab.ts"],
       "@blintz/comments": ["../../packages/comments/src/index.ts"]
     },
 

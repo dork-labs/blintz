@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useBlintzComments } from "@blintz/comments";
 import { CommentsSidebar, type DemoThread } from "./CommentsSidebar";
+import { CollabDemo } from "./CollabDemo";
 import { MarkdownEditor } from "blintz";
 import { SAMPLE_EMBEDS } from "./embeds";
 import { SAMPLE_WIKI_LINKS } from "./wiki-links";
@@ -122,6 +123,9 @@ export default function Playground() {
           </div>
         </div>
         <div className={`specimen-stage${narrow ? " is-narrow" : ""}`}>
+          {specimen === "collab" ? (
+            <CollabDemo theme={theme} />
+          ) : (
           <section
             aria-label="Markdown document"
             className="specimen-paper"
@@ -138,6 +142,7 @@ export default function Playground() {
               plugins={[comments.plugin]}
             />
           </section>
+          )}
           {specimen === "comments" && (
             <CommentsSidebar
               comments={comments}

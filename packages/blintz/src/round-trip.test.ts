@@ -21,6 +21,7 @@
 import { describe, expect, it } from "vitest";
 import { Editor, defaultValueCtx, rootCtx } from "@milkdown/kit/core";
 import { gfm } from "@milkdown/kit/preset/gfm";
+import { tableCellNullAlignment, tableHeaderNullAlignment } from "./features/table/alignment";
 import { getMarkdown } from "@milkdown/kit/utils";
 
 import {
@@ -40,7 +41,9 @@ async function roundTrip(markdown: string): Promise<string> {
     })
     .use(commonmarkWithoutEmptyLinePreservation)
     .use(stripEmptyLineBreaks)
-    .use(gfm);
+    .use(gfm)
+      .use(tableCellNullAlignment)
+      .use(tableHeaderNullAlignment);
   frontmatterFeature(editor);
   embedGrammarFeature(editor);
   wikiLinkGrammarFeature(editor);

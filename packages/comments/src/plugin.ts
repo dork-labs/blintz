@@ -1,7 +1,10 @@
 import type { Node } from "@milkdown/kit/prose/model";
 import { Plugin, PluginKey, type EditorState, type Transaction } from "@milkdown/kit/prose/state";
 import { Decoration, DecorationSet, type EditorView } from "@milkdown/kit/prose/view";
-import { DOCUMENT_RESET_META } from "blintz";
+import { DOCUMENT_RESET_META, isCollaboratorChange } from "blintz";
+import type { Mappable } from "@milkdown/kit/prose/transform";
+
+import { diffMap } from "./diff-map";
 
 import {
   anchorFromRange,
@@ -142,12 +145,25 @@ function sync(previous: CommentsState, doc: Node, display: CommentsDisplay): Com
 }
 
 /**
- * Whether the host replaced the document (a new `value`), as Blintz tags it.
+ * Whether the host replaced the document (a new `value`, as Blintz tags it).
  * Select-all and type looks identical step for step, so the step shape is
  * never used to decide this.
  */
 function isHostReset(tr: Transaction): boolean {
   return tr.getMeta(DOCUMENT_RESET_META) === true;
+}
+
+/**
+ * How positions move through a transaction. A collaborator's change arrives
+ * as a whole-document replacement, so its own mapping would collapse every
+ * thread; map through what actually differs instead, word by word, as if it
+ * were ordinary edits (a remote deletion orphans, a remote undo restores, and
+ * edits on both sides of a comment leave it alone).
+ */
+function mappingFor(tr: Transaction): { mapping: Mappable; exact: boolean } {
+  return isCollaboratorChange(tr)
+    ? (({ map, exact }) => ({ mapping: map, exact }))(diffMap(tr.before, tr.doc))
+    : { mapping: tr.mapping, exact: true };
 }
 
 /**
@@ -193,13 +209,15 @@ function mapThrough(previous: CommentsState, tr: Transaction, display: CommentsD
   const lastAnchors = new Map(previous.lastAnchors);
   const deletedAnchors = new Map(previous.deletedAnchors);
   // Keep each deletion point on the spot where undo would put the words back.
-  const deletedAt = new Map([...previous.deletedAt].map(([id, pos]) => [id, tr.mapping.map(pos, -1)]));
+  const { mapping, exact } = mappingFor(tr);
+  const deletedAt = new Map([...previous.deletedAt].map(([id, pos]) => [id, mapping.map(pos, -1)]));
   const reset = isHostReset(tr);
   let model: ReturnType<typeof docText> | undefined;
+  let beforeModel: ReturnType<typeof docText> | undefined;
   for (const [id, range] of previous.ranges) {
     // Typing at either edge does not extend a comment.
-    const from = tr.mapping.map(range.from, 1);
-    const to = tr.mapping.map(range.to, -1);
+    const from = mapping.map(range.from, 1);
+    const to = mapping.map(range.to, -1);
     if (from < to) {
       ranges.set(id, { from, to, match: range.match });
       continue;
@@ -213,6 +231,19 @@ function mapThrough(previous: CommentsState, tr: Transaction, display: CommentsD
       else orphaned.set(id, "missing");
       continue;
     }
+    if (!exact) {
+      // A collaborator's change too big to diff collapsed the range whether
+      // or not its words survived: find them again only with all of their
+      // current context, so deleted words never land on the same words in
+      // another sentence.
+      const fresh = anchorFromRange(tr.before, range.from, range.to);
+      model ??= docText(tr.doc);
+      const found = fresh ? locateDetailed(tr.doc, fresh, model) : null;
+      if (found && enoughContext(found, "deleted")) {
+        ranges.set(id, found);
+        continue;
+      }
+    }
     // The user deleted the words. Remember them exactly as they were, with
     // their context right now, so undo can bring the thread back, and never
     // re-attach it to the same words elsewhere.
@@ -223,6 +254,8 @@ function mapThrough(previous: CommentsState, tr: Transaction, display: CommentsD
   }
   // Orphans get another chance on every change: anywhere their anchor fits
   // after a host reset; during editing only with enough of their context.
+  // A deleted thread comes back at its deletion point, or, after a change
+  // too big to diff (which loses that point), wherever all its context is.
   for (const [id, kind] of previous.orphaned) {
     const candidates = [deletedAnchors.get(id), lastAnchors.get(id)].filter(
       (anchor): anchor is CommentAnchor => anchor !== undefined,
@@ -230,9 +263,17 @@ function mapThrough(previous: CommentsState, tr: Transaction, display: CommentsD
     model ??= docText(tr.doc);
     for (const anchor of candidates) {
       const found =
-        kind === "deleted" && !reset
+        kind === "deleted" && !reset && exact
           ? restoredAt(model, anchor, deletedAt.get(id))
           : locateDetailed(tr.doc, anchor, model);
+      // After a change too big to diff, a deleted thread returns only if its
+      // words came back with it, never to a copy that was there all along.
+      const wasThere = () => {
+        beforeModel ??= docText(tr.before);
+        const before = locateDetailed(tr.before, anchor, beforeModel);
+        return before !== null && enoughContext(before, "deleted");
+      };
+      if (kind === "deleted" && !reset && !exact && found && wasThere()) continue;
       if (found && (reset || enoughContext(found, kind))) {
         ranges.set(id, found);
         orphaned.delete(id);

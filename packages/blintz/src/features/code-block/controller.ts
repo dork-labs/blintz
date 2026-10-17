@@ -1,5 +1,5 @@
 import type { Line, SelectionRange } from "@codemirror/state";
-import { Compartment, EditorState } from "@codemirror/state";
+import { Compartment, EditorState, Transaction } from "@codemirror/state";
 import {
   EditorView as CodeMirror,
   type KeyBinding,
@@ -212,17 +212,30 @@ export class CodeMirrorController {
           return true;
         },
       },
+      // Undo is the document's (ProseMirror history, or Yjs undo while
+      // collaborating), never CodeMirror's own: that would also undo text
+      // that arrived from elsewhere. Handled even when there's nothing to
+      // undo, so CodeMirror's history never gets the key.
       {
         key: "Mod-z",
-        run: () => view.editable && undo(view.state, view.dispatch),
+        run: () => {
+          if (view.editable) (this.config.undo ?? undo)(view.state, view.dispatch);
+          return true;
+        },
       },
       {
         key: "Shift-Mod-z",
-        run: () => view.editable && redo(view.state, view.dispatch),
+        run: () => {
+          if (view.editable) (this.config.redo ?? redo)(view.state, view.dispatch);
+          return true;
+        },
       },
       {
         key: "Mod-y",
-        run: () => view.editable && redo(view.state, view.dispatch),
+        run: () => {
+          if (view.editable) (this.config.redo ?? redo)(view.state, view.dispatch);
+          return true;
+        },
       },
       {
         key: "Backspace",
@@ -327,6 +340,9 @@ export class CodeMirrorController {
       this.cm.dispatch({
         changes: { from: change.from, to: change.to, insert: change.text },
         scrollIntoView: true,
+        // Text from the document (an undo, a collaborator) isn't this
+        // CodeMirror's own edit.
+        annotations: Transaction.addToHistory.of(false),
       });
       this.updating = false;
     }
