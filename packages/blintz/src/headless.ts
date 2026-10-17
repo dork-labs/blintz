@@ -78,13 +78,16 @@ export interface MarkdownSource {
   /**
    * The raw ranges the document range `[from, to)` came from, with the same
    * evidence rules as the editor's `MarkdownSourcePort.range`: `null` when any
-   * part of it has no exact source (atoms such as wiki links, escapes, entities).
+   * part of it has no exact source (atoms such as wiki links, escapes,
+   * entities, code), or when it spans more than 100 text runs.
    */
   toSource(from: number, to: number): RawSourceRange[] | null;
   /**
-   * The document range of the text inside the raw range `[start, end)`. Ends
-   * inside markdown syntax snap inward to the nearest text; `null` when no
-   * mapped text lies inside.
+   * The document range of the text inside the raw range `[start, end)`, and
+   * of any atom it covers whole. Ends inside markdown syntax snap inward to
+   * the nearest text. Text with no exact source (an escape, an entity, code)
+   * counts only whole: `null` when an end falls inside it, and when nothing
+   * mapped lies inside.
    */
   fromSource(start: number, end: number): { from: number; to: number } | null;
 }

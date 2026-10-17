@@ -62,6 +62,14 @@ it("reports words found in text without an exact source", async () => {
   expect(resolveAnchor(model, md, words)?.source).toMatchObject({ start: md.indexOf("today"), end: md.indexOf(".") });
 });
 
+it("anchors every word a raw range covers, including text without an exact source", async () => {
+  const model = await createMarkdownModel();
+  const md = "Tom &amp; Jerry, see **the cast** today.\n";
+  const anchor = createAnchor(model, md, 0, md.indexOf("."))!;
+  expect(anchor.quote).toBe("Tom & Jerry, see the cast today");
+  expect(anchor.prefix).toBe("");
+});
+
 it("returns null for a range with no text", async () => {
   const model = await createMarkdownModel();
   expect(createAnchor(model, markdown, 0, 2)).toBeNull();

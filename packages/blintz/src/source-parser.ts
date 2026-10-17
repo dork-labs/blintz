@@ -24,9 +24,15 @@ export interface ParsedSource {
   texts: TextOrigin[];
   /** Inline and block atoms (wiki links, images, math) and the markdown they came from. */
   atoms: TextOrigin[];
+  /**
+   * Text without an exact source (escapes, entities, code) and the whole raw
+   * node it came from: addressable only as a whole.
+   */
+  loose: TextOrigin[];
   tasks: Map<number, SourceTask>;
 }
-type TextSpans = { length: number; start?: number; end?: number }[];
+/** `start`/`end`: exact raw source. `rawStart`/`rawEnd`: the raw node it came from, when not exact. */
+type TextSpans = { length: number; start?: number; end?: number; rawStart?: number; rawEnd?: number }[];
 const lexicalSources = new WeakMap<ParsedSource, {
   origins: WeakMap<Node, MarkdownNode>;
   textOrigins: WeakMap<Node, TextSpans>;
@@ -72,10 +78,7 @@ export function parseSource(
   const coordinates = createRawCoordinateMap(text);
   const state = new ParserState(schema);
   const origins = new WeakMap<Node, MarkdownNode>();
-  const textOrigins = new WeakMap<
-    Node,
-    { length: number; start?: number; end?: number }[]
-  >();
+  const textOrigins = new WeakMap<Node, TextSpans>();
   let active: MarkdownNode | undefined;
   const parents: MarkdownNode[] = [];
   const suffixes = new WeakMap<Node, number>();
@@ -118,7 +121,9 @@ export function parseSource(
       text.slice(start + bom, end + bom) === value;
     const span = exact
       ? { length: value.length, start: start! + bom, end: end! + bom }
-      : { length: value.length };
+      : typeof start === "number" && typeof end === "number"
+        ? { length: value.length, rawStart: start + bom, rawEnd: end + bom }
+        : { length: value.length };
     textOrigins.set(
       current,
       current.text === value
@@ -145,6 +150,7 @@ function mapSource(text: string, coordinates: RawCoordinateMap, doc: Node,
   const bom = text.startsWith("\uFEFF") ? 1 : 0;
   const texts: TextOrigin[] = [],
     atoms: TextOrigin[] = [],
+    loose: TextOrigin[] = [],
     tasks = new Map<number, SourceTask>();
   doc.descendants((node, pos) => {
     if (node.isLeaf && !node.isText) {
@@ -162,6 +168,13 @@ function mapSource(text: string, coordinates: RawCoordinateMap, doc: Node,
             to: pos + offset + span.length,
             rawFrom: span.start,
             rawTo: span.end,
+          });
+        else if (span.rawStart !== undefined && span.rawEnd !== undefined)
+          loose.push({
+            from: pos + offset,
+            to: pos + offset + span.length,
+            rawFrom: span.rawStart,
+            rawTo: span.rawEnd,
           });
         offset += span.length;
       }
@@ -189,7 +202,7 @@ function mapSource(text: string, coordinates: RawCoordinateMap, doc: Node,
       checked,
     });
   });
-  return { text, coordinates, doc, texts, atoms, tasks };
+  return { text, coordinates, doc, texts, atoms, loose, tasks };
 }
 
 /**
@@ -250,8 +263,10 @@ export function mapSourceRange(
 /**
  * Map a raw range `[start, end)` of the parsed text to the model range of the
  * text it covers, and of any atom it covers whole. Ends inside markdown
- * syntax snap inward to the nearest text (`**bold**` covers `bold`); `null`
- * when nothing mapped lies inside.
+ * syntax snap inward to the nearest text (`**bold**` covers `bold`). Text
+ * with no exact source (an escape, an entity, code) counts only whole: an end
+ * inside it is `null`, never a silently shorter range. `null` too when
+ * nothing mapped lies inside.
  */
 export function mapRawRange(
   parsed: ParsedSource,
@@ -265,6 +280,12 @@ export function mapRawRange(
     const spanTo = span.from + Math.min(end, span.rawTo) - span.rawFrom;
     if (from === undefined || spanFrom < from) from = spanFrom;
     if (to === undefined || spanTo > to) to = spanTo;
+  }
+  for (const run of parsed.loose) {
+    if (run.rawTo <= start || run.rawFrom >= end) continue;
+    if (run.rawFrom < start || run.rawTo > end) return null;
+    if (from === undefined || run.from < from) from = run.from;
+    if (to === undefined || run.to > to) to = run.to;
   }
   for (const atom of parsed.atoms) {
     if (atom.rawFrom < start || atom.rawTo > end) continue;

@@ -91,3 +91,30 @@ describe("model.source (Node, no DOM)", () => {
     expect(between(0, 2)).toBeNull();
   });
 });
+
+describe("model.source().fromSource edge cases", () => {
+  const cases: Array<[string, string, (md: string) => [number, number], string | null]> = [
+    // Text without an exact source counts whole, never silently shortened.
+    ["covers an entity's text whole", "Tom &amp; Jerry, see **the cast** today.\n", (md) => [0, md.indexOf(".")], "Tom & Jerry, see the cast today"],
+    ["refuses an end inside an entity's text", "Tom &amp; Jerry went to the Friday market.\n", (md) => [md.indexOf("Friday"), md.indexOf("Friday") + 6], null],
+    ["refuses an end inside escaped text", "Use snake\\_case names here.\n", (md) => [md.indexOf("names"), md.indexOf("names") + 5], null],
+    ["covers inline code whole", "Run `npm test` now.\n", (md) => [0, md.indexOf(".")], "Run npm test now"],
+    ["refuses an end inside inline code", "Run `npm test` now.\n", (md) => [md.indexOf("npm"), md.indexOf("npm") + 3], null],
+    ["covers a wiki link whole", "See [[Cast]] today.\n", (md) => [md.indexOf("[["), md.indexOf(".")], "￼ today"],
+    ["leaves out a wiki link covered in part", "See [[Cast]] today.\n", (md) => [md.indexOf("Cast"), md.indexOf(".")], " today"],
+    ["is null for an empty range", "Plain text.\n", () => [3, 3], null],
+    ["is null when start is past end", "Plain text.\n", () => [6, 2], null],
+    ["is null for NaN", "Plain text.\n", () => [Number.NaN, 4], null],
+    ["is null for markup alone", "Some **bold** text.\n", (md) => [md.indexOf("**"), md.indexOf("**") + 2], null],
+    ["snaps across a CRLF and a BOM", "﻿First line.\r\n\r\nSecond line.\r\n", (md) => [md.indexOf("line."), md.indexOf("Second") + 6], "line.\nSecond"],
+  ];
+
+  it.each(cases)("%s", async (_, markdown, range, expected) => {
+    const model = await createMarkdownModel();
+    const source = model.source(markdown);
+    const [start, end] = range(markdown);
+    const found = source.fromSource(start, end);
+    const text = found && source.doc.textBetween(found.from, found.to, "\n", "￼");
+    expect(text).toBe(expected);
+  });
+});
