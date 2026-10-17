@@ -25,9 +25,10 @@ export interface WikiLinkSuggestion {
 /** The `wikiLinks` prop: how the host resolves, suggests, and opens wiki links. */
 export interface WikiLinkOptions {
   /**
-   * Resolve a link (sync or async). Called once per distinct target/heading
-   * while this function stays the same; pass a stable function (or memoize it)
-   * so results are cached.
+   * Resolve a link (sync or async). Called once per distinct target, heading
+   * and link/embed kind while this function stays the same, failures
+   * included. Pass a stable function (or memoize it) so results stay cached;
+   * pass a new one to refresh every link, e.g. after a page is created.
    */
   resolve?: (link: WikiLink) => WikiLinkResolution | Promise<WikiLinkResolution>;
   /** Suggestions for the `[[` menu (sync or async). Omit to turn the menu off. */
@@ -68,7 +69,7 @@ export class WikiLinkResolver {
   /** The current entry for a link, starting resolution on first sight. */
   read(link: WikiLink): Entry | undefined {
     if (!this.resolve) return undefined;
-    const key = `${link.target}\u0000${link.heading ?? ""}`;
+    const key = `${link.embed ? "!" : ""}${link.target}\u0000${link.heading ?? ""}`;
     const cached = this.entries.get(key);
     if (cached) return cached;
     const settle = (entry: Entry) => {

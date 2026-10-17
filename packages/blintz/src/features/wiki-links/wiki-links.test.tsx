@@ -58,6 +58,7 @@ let mounted: Editor | null = null;
 
 /** Insert text at `pos` and leave the caret after it, as typing would. */
 function typeAt(view: EditorView, pos: number, text: string) {
+  view.focus();
   const tr = view.state.tr.insertText(text, pos);
   view.dispatch(tr.setSelection(TextSelection.create(tr.doc, pos + text.length)));
 }
@@ -207,6 +208,99 @@ describe("<MarkdownEditor wikiLinks>", () => {
     expect(menu()?.dataset.show).toBe("false");
   });
 
+  it("ignores menu keys while focus is elsewhere", async () => {
+    const onChange = vi.fn();
+    const el = await mount("Go\n", { search: () => [{ target: "Home" }] }, { onChange });
+    const view = viewOf(el);
+    await act(async () => typeAt(view, 1 + view.state.doc.firstChild!.content.size, " [[h"));
+    const menu = () => document.querySelector<HTMLElement>(".blintz-wiki-link-menu");
+    await waitFor(() => menu()?.dataset.show === "true");
+    const other = document.createElement("textarea");
+    document.body.append(other);
+    await act(async () => other.focus());
+    await waitFor(() => menu()?.dataset.show === "false");
+    const enter = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
+    await act(async () => {
+      other.dispatchEvent(enter);
+    });
+    expect(enter.defaultPrevented).toBe(false);
+    expect(onChange.mock.calls.some(([md]) => md.includes("[[Home]]"))).toBe(false);
+    other.remove();
+  });
+
+  it("refuses the ]] rule across an inline node", async () => {
+    const el = await mount("see ![i](x.png)\n", undefined);
+    const view = viewOf(el);
+    await act(async () => {
+      view.focus();
+      const end = 1 + view.state.doc.firstChild!.content.size;
+      const tr = view.state.tr.insertText("[[a", 5).insertText("b]", end + 3);
+      view.dispatch(tr.setSelection(TextSelection.create(tr.doc, end + 5)));
+      const { from, to } = view.state.selection;
+      const handled = view.someProp("handleTextInput", (f) => f(view, from, to, "]", () => view.state.tr.insertText("]", from, to)));
+      if (!handled) view.dispatch(view.state.tr.insertText("]", from, to));
+    });
+    const names: string[] = [];
+    view.state.doc.descendants((node) => void names.push(node.type.name));
+    expect(names).toContain("image");
+    expect(names).not.toContain("wiki_link");
+  });
+
+  it("does not make a link inside an inline code span", async () => {
+    const el = await mount("`code here`\n", undefined);
+    const view = viewOf(el);
+    await act(async () => {
+      view.focus();
+      view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 5)));
+      for (const ch of "[[a]]") {
+        const { from, to } = view.state.selection;
+        const handled = view.someProp("handleTextInput", (f) => f(view, from, to, ch, () => view.state.tr.insertText(ch, from, to)));
+        if (!handled) view.dispatch(view.state.tr.insertText(ch, from, to));
+      }
+    });
+    const names: string[] = [];
+    view.state.doc.descendants((node) => void names.push(node.type.name));
+    expect(names).not.toContain("wiki_link");
+  });
+
+  it("keeps a wiki link out of a code span applied over it", async () => {
+    const onChange = vi.fn();
+    const el = await mount("a [[b]] c\n", undefined, { onChange });
+    const view = viewOf(el);
+    await act(async () => {
+      const { schema } = view.state;
+      const end = 1 + view.state.doc.firstChild!.content.size;
+      view.dispatch(view.state.tr.addMark(1, end, schema.marks.inlineCode!.create()));
+    });
+    await waitFor(() => onChange.mock.calls.length > 0);
+    const md = onChange.mock.calls.at(-1)![0] as string;
+    expect(md).toBe("`a `[[b]]` c`\n");
+  });
+
+  it("never renders an unsafe href from the resolver", async () => {
+    const el = await mount("[[x]] [[y]] [[z]]\n", {
+      resolve: (link) => ({
+        exists: true,
+        href: { x: "javascript:alert(1)", y: " JaVaScRiPt:alert(1)", z: "/docs/z" }[link.target],
+      }),
+    });
+    await waitFor(() => el.querySelectorAll('.blintz-wiki-link[data-state="resolved"]').length === 3);
+    const hrefs = [...el.querySelectorAll(".blintz-wiki-link")].map((a) => a.getAttribute("href"));
+    expect(hrefs).toEqual([null, null, "/docs/z"]);
+  });
+
+  it("resolves a link and an embed of the same target separately", async () => {
+    const seen: boolean[] = [];
+    await mount("[[a]] ![[a]]\n", {
+      resolve: (link) => {
+        seen.push(link.embed);
+        return { exists: true };
+      },
+    });
+    await waitFor(() => seen.length === 2);
+    expect(seen.sort()).toEqual([false, true]);
+  });
+
   it("copies a link as its markdown in plain text", async () => {
     const el = await mount("[[Home#Intro|home]]\n", undefined);
     const view = viewOf(el);
@@ -254,6 +348,14 @@ describe("wiki links and the editor's other contracts", () => {
     const h = await fixture("Start.\n");
     paste(h.view, '<p>see <a data-type="wiki-link" data-target="Home" data-heading="Intro">x</a></p>');
     expect(h.editor.action(getMarkdown())).toContain("see [[Home#Intro]]");
+  });
+
+  it("refuses a pasted wiki link too long to read back", async () => {
+    const h = await fixture("Start.\n");
+    paste(h.view, `<p><a data-type="wiki-link" data-target="${"y".repeat(1500)}">t</a></p>`);
+    const names: string[] = [];
+    h.view.state.doc.descendants((node) => void names.push(node.type.name));
+    expect(names).not.toContain("wiki_link");
   });
 
   it.each([

@@ -1,11 +1,18 @@
 import { computePosition, flip, offset, shift } from "@floating-ui/dom";
 import { usePluginViewContext } from "@prosemirror-adapter/react";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
 import { cx } from "../../shared/cx";
 import { useEditorEditable } from "../../shared/editor-ctx";
 import { useWikiLinks, type WikiLinkSuggestion } from "./options";
-import { readMenuQuery, wikiLinkMenuKey, type WikiLinkQuery } from "./menu-plugin";
+import { readMenuQuery, wikiLinkMenuKey } from "./menu-plugin";
 import { wikiLinkId } from "./schema";
 import { isWritableWikiLink } from "./grammar";
 
@@ -18,9 +25,10 @@ import { isWritableWikiLink } from "./grammar";
 export function WikiLinkMenu() {
   const { view } = usePluginViewContext();
   const editable = useEditorEditable(view);
+  const focused = useEditorFocus(view);
   const { options } = useWikiLinks();
   const search = options.search;
-  const query = editable && search ? readMenuQuery(view.state) : null;
+  const query = editable && focused && search ? readMenuQuery(view.state) : null;
   const queryKey = query ? `${query.from}\u0000${query.query}` : null;
 
   const [results, setResults] = useState<{ key: string; items: WikiLinkSuggestion[] } | null>(null);
@@ -52,7 +60,10 @@ export function WikiLinkMenu() {
   useEffect(() => setActive(0), [queryKey]);
 
   const choose = useCallback(
-    (suggestion: WikiLinkSuggestion, at: WikiLinkQuery) => {
+    (suggestion: WikiLinkSuggestion) => {
+      // Re-read the query now: the document may have moved since the render.
+      const at = readMenuQuery(view.state);
+      if (!at) return;
       const link = { target: suggestion.target, heading: null, label: null, embed: at.embed };
       if (!isWritableWikiLink(link)) return;
       const type = view.state.schema.nodes[wikiLinkId];
@@ -72,7 +83,9 @@ export function WikiLinkMenu() {
     if (!open) return;
     const onKeydown = (event: KeyboardEvent) => {
       const { items, active, query } = latest.current;
-      if (!query) return;
+      // Only keys aimed at this editor: never another input, or another
+      // editor's open menu.
+      if (!query || !view.hasFocus()) return;
       const owned = ["ArrowDown", "ArrowUp", "Enter", "Tab", "Escape"].includes(event.key);
       if (!owned || event.isComposing) return;
       event.preventDefault();
@@ -80,7 +93,7 @@ export function WikiLinkMenu() {
       if (event.key === "ArrowDown") setActive((active + 1) % items.length);
       else if (event.key === "ArrowUp") setActive((active - 1 + items.length) % items.length);
       else if (event.key === "Escape") view.dispatch(view.state.tr.setMeta(wikiLinkMenuKey, { dismiss: true }));
-      else choose(items[active]!, query);
+      else choose(items[active]!);
     };
     window.addEventListener("keydown", onKeydown, { capture: true });
     return () => window.removeEventListener("keydown", onKeydown, { capture: true });
@@ -126,7 +139,7 @@ export function WikiLinkMenu() {
             aria-selected={index === active}
             className={cx("blintz-wiki-link-option", index === active && "is-active")}
             onMouseEnter={() => setActive(index)}
-            onClick={() => query && choose(item, query)}
+            onClick={() => choose(item)}
           >
             <span className="blintz-wiki-link-option-title">{item.title ?? item.target}</span>
             {item.description && (
@@ -135,5 +148,21 @@ export function WikiLinkMenu() {
           </div>
         ))}
     </div>
+  );
+}
+
+/** Whether the editor has focus, re-rendering on focus changes (which are not transactions). */
+function useEditorFocus(view: import("@milkdown/kit/prose/view").EditorView): boolean {
+  return useSyncExternalStore(
+    (notify) => {
+      view.dom.addEventListener("focusin", notify);
+      view.dom.addEventListener("focusout", notify);
+      return () => {
+        view.dom.removeEventListener("focusin", notify);
+        view.dom.removeEventListener("focusout", notify);
+      };
+    },
+    () => view.hasFocus(),
+    () => false,
   );
 }

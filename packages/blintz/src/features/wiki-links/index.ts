@@ -5,7 +5,12 @@ import type { useNodeViewFactory, usePluginViewFactory } from "@prosemirror-adap
 import { WikiLinkMenu } from "./WikiLinkMenu";
 import { WikiLinkView } from "./WikiLinkView";
 import { wikiLinkMenuPlugin } from "./menu-plugin";
-import { remarkWikiLinksPlugin, wikiLinkInputRule, wikiLinkSchema } from "./schema";
+import {
+  remarkWikiLinksPlugin,
+  wikiLinkCodeGuard,
+  wikiLinkInputRule,
+  wikiLinkSchema,
+} from "./schema";
 
 type NodeViewFactory = ReturnType<typeof useNodeViewFactory>;
 type PluginViewFactory = ReturnType<typeof usePluginViewFactory>;
@@ -54,5 +59,5 @@ export function wikiLinksFeature(
     }),
   );
 
-  editor.use(wikiLinkInputRule).use(view).use(menu);
+  editor.use(wikiLinkInputRule).use(wikiLinkCodeGuard).use(view).use(menu);
 }

@@ -119,13 +119,13 @@ When writing markdown, `remarkBlockDirectives` wraps the paragraph handler so te
 />
 ```
 
-- `resolve` gets `{ target, heading, label, embed }` and returns `{ exists, href?, title? }`, sync or async. Each distinct target and heading is resolved once while the function stays the same, so pass a stable function. A link to a page that doesn't exist is shown as missing.
+- `resolve` gets `{ target, heading, label, embed }` and returns `{ exists, href?, title? }`, sync or async. Each distinct target, heading and link/embed kind is resolved once while the function stays the same (failures included), so pass a stable function, and a new one to refresh every link. A link to a page that doesn't exist is shown as missing. Only `http:`, `https:`, `mailto:` and relative `href`s are used.
 - `search` feeds a suggestion menu that opens when you type `[[`. Arrow keys move through it, Enter or Tab inserts the page, Escape closes it.
 - Typing the closing `]]` of `[[…]]` also makes a link.
 - Clicking opens a link in a read-only document; while editing, Cmd/Ctrl-click opens it. `onOpen` handles opening; without it, the browser follows `href`.
 - Everything is optional and reactive. With no `wikiLinks`, links still parse, render and round-trip.
 
-Parsing is exact: `[[a#b|c]]` reads as target `a`, heading `b`, label `c` (split at the first `|`, then the first `#`) and writes back unchanged. `[[a]](url)` and `[[a]][ref]` stay ordinary links, and `\[\[a]]` stays text. `remarkWikiLinks` from `blintz/markdown` is the same grammar for servers.
+Parsing is exact: `[[a#b|c]]` reads as target `a`, heading `b`, label `c` (split at the first `|`, then the first `#`) and writes back unchanged. Inside a table, a label's pipe is written `\|` (`[[a\|c]]`, as Obsidian does), and that form reads the same anywhere. Commonmark keeps its meaning where it has one: `[[a]](url)`, and `[[a]][ref]` with `ref` defined, stay ordinary links; `[[a]]` stays a reference link when the document defines `[a]:`; `\[\[a]]` stays text. A link can't sit inside a code span: applying code formatting over one splits the span around it. `remarkWikiLinks` from `blintz/markdown` is the same grammar for servers.
 
 ## Why Blintz
 

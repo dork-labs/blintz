@@ -26,6 +26,7 @@ export function WikiLinkView() {
     () => undefined,
   );
   const resolution = entry?.state === "resolved" ? entry.resolution : undefined;
+  const href = safeHref(resolution?.href);
   const state = !resolver.enabled
     ? "unresolved"
     : entry?.state === "pending"
@@ -45,14 +46,14 @@ export function WikiLinkView() {
       options.onOpen(link, resolution);
       return;
     }
-    if (!resolution?.href) event.preventDefault();
+    if (!href) event.preventDefault();
   };
 
   return (
     <a
       className={cx("blintz-wiki-link", link.embed && "is-embed", selected && "is-selected")}
       data-state={state}
-      href={resolution?.href}
+      href={href}
       title={resolution?.title ?? (state === "missing" ? `${link.target} (missing)` : undefined)}
       onClick={onClick}
       draggable={false}
@@ -60,4 +61,18 @@ export function WikiLinkView() {
       {wikiLinkText(link)}
     </a>
   );
+}
+
+/**
+ * Only navigable, script-free destinations become an `href`: http(s),
+ * mailto, and relative URLs (`/docs/a`, `#h`, `?q`, `page`). A host that
+ * builds hrefs from what authors typed can't be tricked into `javascript:`.
+ */
+export function safeHref(href: string | undefined): string | undefined {
+  if (!href) return undefined;
+  // Strip what browsers ignore before the scheme (controls and whitespace).
+  const trimmed = href.replace(/^[\u0000-\u0020]+/, "");
+  const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(trimmed.replace(/[\t\n\r]/g, ""));
+  if (!scheme) return href;
+  return ["http", "https", "mailto"].includes(scheme[1]!.toLowerCase()) ? href : undefined;
 }

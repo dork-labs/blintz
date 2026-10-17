@@ -19,13 +19,14 @@ interface MenuState {
 
 export const wikiLinkMenuKey = new PluginKey<MenuState>("blintz-wiki-link-menu");
 
-const OPEN = /(!?)\[\[([^[\]\r\n|#]*)$/;
+const OPEN = /(!?)\[\[([^[\]\r\n|#\ufffc]*)$/;
 
 function findQuery(state: EditorState): WikiLinkQuery | null {
   const { selection } = state;
   if (!selection.empty) return null;
   const $pos = selection.$from;
   if (!$pos.parent.isTextblock || $pos.parent.type.spec.code) return null;
+  if ($pos.marks().some((mark) => mark.type.spec.code)) return null;
   const before = $pos.parent.textBetween(
     Math.max(0, $pos.parentOffset - 200),
     $pos.parentOffset,
@@ -54,7 +55,9 @@ export function wikiLinkMenuPlugin(
       apply(tr, previous, _old, state) {
         const query = findQuery(state);
         const dismiss = (tr.getMeta(wikiLinkMenuKey) as { dismiss?: boolean } | undefined)?.dismiss;
-        let dismissed = previous.dismissed;
+        // Keep a dismissal attached to its `[[` while text moves around it.
+        let dismissed =
+          previous.dismissed === null ? null : tr.mapping.map(previous.dismissed);
         if (dismiss) dismissed = query?.from ?? null;
         else if (!query || query.from !== dismissed) dismissed = null;
         return { query: query && query.from !== dismissed ? query : null, dismissed };

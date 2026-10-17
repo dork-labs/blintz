@@ -1,9 +1,10 @@
 import { InputRule } from "@milkdown/kit/prose/inputrules";
-import { $inputRule, $nodeSchema, $remark } from "@milkdown/kit/utils";
+import { Plugin, PluginKey } from "@milkdown/kit/prose/state";
+import { $inputRule, $nodeSchema, $prose, $remark } from "@milkdown/kit/utils";
 
 import {
   isWritableWikiLink,
-  parseWikiLinkBody,
+  parseWikiLinkSource,
   remarkWikiLinks,
   stringifyWikiLink,
   type WikiLink,
@@ -53,6 +54,8 @@ export const wikiLinkSchema = $nodeSchema(wikiLinkId, () => ({
     heading: { default: null },
     label: { default: null },
     embed: { default: false },
+    // Internal: the source escaped its pipes (`[[a\\|b]]`); write it back so.
+    escapedPipe: { default: false },
   },
   leafText: (node) => stringifyWikiLink(wikiLinkFromAttrs(node.attrs)),
   parseDOM: [
@@ -83,6 +86,7 @@ export const wikiLinkSchema = $nodeSchema(wikiLinkId, () => ({
         heading: node.heading ?? null,
         label: node.label ?? null,
         embed: node.embed === true,
+        escapedPipe: node.escapedPipe === true,
       });
     },
   },
@@ -90,8 +94,10 @@ export const wikiLinkSchema = $nodeSchema(wikiLinkId, () => ({
     match: (node) => node.type.name === wikiLinkId,
     runner: (state, node) => {
       const link = wikiLinkFromAttrs(node.attrs);
-      state.addNode("wikiLink", undefined, stringifyWikiLink(link).replace(/^!?\[\[|\]\]$/g, ""), {
+      const escapedPipe = node.attrs.escapedPipe === true;
+      state.addNode("wikiLink", undefined, stringifyWikiLink(link, escapedPipe), {
         ...link,
+        escapedPipe,
       });
     },
   },
@@ -104,15 +110,53 @@ export function wikiLinkText(link: WikiLink): string {
   return link.target;
 }
 
-/** Typing the closing `]]` of `[[…]]` (or `![[…]]`) turns it into a link. */
+/**
+ * Typing the closing `]]` of `[[…]]` (or `![[…]]`) turns it into a link. The
+ * text must be plain characters: an inline node in the middle (an image, a
+ * hard break) shows up as U+FFFC and refuses the rule, as does a code span.
+ */
 export const wikiLinkInputRule = $inputRule(
   (ctx) =>
-    new InputRule(/(!?)\[\[([^[\]\r\n]+)\]\]$/, (state, match, start, end) => {
-      const [, bang, body] = match;
-      const link = parseWikiLinkBody(body!, bang === "!");
-      if (!isWritableWikiLink(link)) return null;
-      const $start = state.doc.resolve(start);
-      if ($start.parent.type.spec.code) return null;
-      return state.tr.replaceWith(start, end, wikiLinkSchema.type(ctx).create(link));
+    new InputRule(
+      /(!?)\[\[([^[\]\r\n\ufffc]+)\]\]$/,
+      (state, match, start, end) => {
+        const [, bang, body] = match;
+        const { link, escapedPipe } = parseWikiLinkSource(body!, bang === "!");
+        if (!isWritableWikiLink(link)) return null;
+        const $start = state.doc.resolve(start);
+        if ($start.parent.type.spec.code) return null;
+        // Milkdown runs input rules itself and ignores `inCodeMark`; check here.
+        const inCode = (pos: number) =>
+          state.doc.resolve(pos).marks().some((mark) => mark.type.spec.code);
+        if (inCode(start) || inCode(end)) return null;
+        const node = wikiLinkSchema.type(ctx).create({ ...link, escapedPipe });
+        return state.tr.replaceWith(start, end, node);
+      },
+    ),
+);
+
+/**
+ * A wiki link can't live inside a code span (it would be written as literal
+ * code, and the link lost). Strip any code mark a command puts on one, so the
+ * span splits around the link instead.
+ */
+export const wikiLinkCodeGuard = $prose(
+  () =>
+    new Plugin({
+      key: new PluginKey("blintz-wiki-link-code-guard"),
+      appendTransaction(transactions, _old, state) {
+        if (!transactions.some((tr) => tr.docChanged)) return null;
+        let tr = null as ReturnType<typeof state.tr.removeMark> | null;
+        state.doc.descendants((node, pos) => {
+          if (node.type.name !== wikiLinkId) return;
+          for (const mark of node.marks) {
+            if (mark.type.spec.code) {
+              tr ??= state.tr;
+              tr.removeMark(pos, pos + node.nodeSize, mark.type);
+            }
+          }
+        });
+        return tr;
+      },
     }),
 );
