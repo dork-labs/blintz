@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { MarkdownEditor } from "blintz";
 import { SAMPLE_EMBEDS } from "./embeds";
+import { SAMPLE_WIKI_LINKS } from "./wiki-links";
 import { SPECIMENS, type SpecimenId } from "./specimens";
 import "./playground.css";
 
@@ -108,6 +109,7 @@ export default function Playground() {
               theme={query.get("auto") === "true" ? "auto" : theme}
               editable={editable}
               embeds={SAMPLE_EMBEDS}
+              wikiLinks={SAMPLE_WIKI_LINKS}
             />
           </section>
           {source && (

@@ -28,6 +28,7 @@ import { DEFAULT_EDITABLE, editablePredicate } from "./read-only";
 import { blockEditFeature } from "./features/block-edit/plugins";
 import { codeMirrorFeature } from "./features/code-block";
 import { embedsFeature } from "./features/embeds";
+import { wikiLinksFeature } from "./features/wiki-links";
 import { cursorFeature } from "./features/cursor";
 import { stripEmptyLineBreaks } from "./features/empty-paragraphs";
 import { frontmatterFeature } from "./features/frontmatter";
@@ -178,6 +179,8 @@ export function useBlintzEditor({
     imageBlockFeature(editor, nodeViewFactory);
     // Block directives; the registry is read live from React context.
     embedsFeature(editor, nodeViewFactory);
+    // `[[wiki links]]`; resolution and suggestions are read live from context.
+    wikiLinksFeature(editor, nodeViewFactory, pluginViewFactory);
     codeMirrorFeature(editor, nodeViewFactory);
     tableFeature(editor, nodeViewFactory);
     toolbarFeature(editor, pluginViewFactory);

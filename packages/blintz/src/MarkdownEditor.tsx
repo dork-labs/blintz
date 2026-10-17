@@ -9,6 +9,7 @@ import {
 
 import { EditorCtxProvider } from "./shared/editor-ctx";
 import { EmbedRegistryProvider, type EmbedRegistry } from "./features/embeds/registry";
+import { WikiLinkProvider, type WikiLinkOptions } from "./features/wiki-links/options";
 import type { CtxHolder } from "./shared/editor-ctx";
 import { cx } from "./shared/cx";
 import type { SourceCallbacks } from "./source-controller";
@@ -60,6 +61,13 @@ export interface MarkdownEditorProps extends SourceCallbacks {
    * round-trip unchanged. Reactive: changing it re-renders embeds in place.
    */
   embeds?: EmbedRegistry;
+  /**
+   * Wiki links (`[[target]]`, `[[target#heading|label]]`, `![[target]]`):
+   * `resolve` says where a link points and whether the page exists, `search`
+   * feeds the `[[` suggestion menu, and `onOpen` handles opening one. The
+   * markdown always keeps what the author typed. Reactive: no remount.
+   */
+  wikiLinks?: WikiLinkOptions;
 }
 
 const NO_EMBEDS: EmbedRegistry = {};
@@ -83,6 +91,7 @@ export function MarkdownEditor({
   theme = "auto",
   plugins,
   embeds = NO_EMBEDS,
+  wikiLinks,
   sourceRevision,
   onSourceReady,
   onSourceSelection,
@@ -142,6 +151,7 @@ export function MarkdownEditor({
     >
       <EditorCtxProvider value={ctxHolder}>
         <EmbedRegistryProvider value={embeds}>
+        <WikiLinkProvider options={wikiLinks}>
           <MilkdownProvider>
             <ProsemirrorAdapterProvider>
               <EditorInner
@@ -158,6 +168,7 @@ export function MarkdownEditor({
               />
             </ProsemirrorAdapterProvider>
           </MilkdownProvider>
+        </WikiLinkProvider>
         </EmbedRegistryProvider>
       </EditorCtxProvider>
     </div>

@@ -5,8 +5,8 @@
  *
  * Mounts a headless editor with the EXACT grammar plugins `useBlintzEditor`
  * loads (commonmark minus the empty-line `<br />` hack, plus gfm, the
- * frontmatter feature, and the block-directive grammar), seeds a document, and
- * serializes it straight back. The
+ * frontmatter feature, the block-directive grammar, and wiki links), seeds a
+ * document, and serializes it straight back. The
  * React feature views are editing chrome and do not affect serialization, so
  * this is a faithful measure of what survives a parse -> serialize trip.
  *
@@ -16,7 +16,7 @@
  *   1. Faithful — byte-identical round-trip (safe to edit and write back).
  *   2. Normalized — content survives, formatting is rewritten (noisy git diff).
  *   3. Unrepresentable — the grammar cannot hold it; the HOST must preserve it
- *      out-of-band (e.g. Obsidian `[[wikilinks]]`, which commonmark escapes).
+ *      out-of-band.
  */
 import { describe, expect, it } from "vitest";
 import { Editor, defaultValueCtx, rootCtx } from "@milkdown/kit/core";
@@ -28,6 +28,7 @@ import {
   stripEmptyLineBreaks,
 } from "./features/empty-paragraphs";
 import { embedGrammarFeature } from "./features/embeds/grammar-feature";
+import { wikiLinkGrammarFeature } from "./features/wiki-links";
 import { frontmatterFeature } from "./features/frontmatter";
 
 async function roundTrip(markdown: string): Promise<string> {
@@ -42,6 +43,7 @@ async function roundTrip(markdown: string): Promise<string> {
     .use(gfm);
   frontmatterFeature(editor);
   embedGrammarFeature(editor);
+  wikiLinkGrammarFeature(editor);
   await editor.create();
   const out = editor.action(getMarkdown());
   await editor.destroy();
@@ -148,10 +150,13 @@ describe("Blintz round-trip fidelity", () => {
     });
   });
 
-  describe("tier 3: unrepresentable (host must preserve out-of-band)", () => {
-    it("escapes Obsidian wikilinks (breaks them)", async () => {
-      const out = await roundTrip("See [[Other Note]] for details.\n");
-      expect(out).toContain("\\[\\[Other Note]]");
+  describe("wiki links (formerly tier 3, now faithful)", () => {
+    it.each([
+      "See [[Other Note]] for details.\n",
+      "[[a#b|c]] and ![[img.png]]\n",
+      "[[a]][[b]]\n",
+    ])("preserves %j byte-for-byte", async (md) => {
+      expect(await roundTrip(md)).toBe(md);
     });
   });
 });

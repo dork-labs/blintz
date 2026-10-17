@@ -19,7 +19,7 @@ function Example() {
 }
 ```
 
-The whole public surface is one controlled `<MarkdownEditor value onChange />` component, plus `editable`, `placeholder`, `theme`, `className`, `embeds` and `plugins`. The Milkdown engine, the Crepe-derived feature views, and the theme CSS sit behind it.
+The whole public surface is one controlled `<MarkdownEditor value onChange />` component, plus `editable`, `placeholder`, `theme`, `className`, `embeds`, `wikiLinks` and `plugins`. The Milkdown engine, the Crepe-derived feature views, and the theme CSS sit behind it.
 
 ## Read-only mode
 
@@ -83,19 +83,49 @@ Only block directives are recognized. Inline `:name[…]` directives are not, so
 
 ### Rendering directives without the editor
 
-`blintz/directives` is the same grammar as a remark plugin, with no React or ProseMirror. Use it to publish documents or read them on a server:
+`blintz/markdown` holds every grammar Blintz adds (directives and wiki links) as remark plugins, with no React or ProseMirror; `blintz/directives` holds the directive part alone. Use them to publish documents or read them on a server:
 
 ```ts
 import { unified } from "unified";
 import remarkParse from "remark-parse";
 import remarkStringify from "remark-stringify";
-import { remarkBlockDirectives, validateEmbedAttributes } from "blintz/directives";
+import { remarkBlockDirectives, remarkWikiLinks, validateEmbedAttributes } from "blintz/markdown";
 
-const tree = unified().use(remarkParse).use(remarkBlockDirectives).parse(markdown);
-// `leafDirective` and `containerDirective` nodes carry `name` and `attributes`.
+const tree = unified().use(remarkParse).use(remarkWikiLinks).use(remarkBlockDirectives).parse(markdown);
+// `leafDirective` and `containerDirective` nodes carry `name` and `attributes`;
+// `wikiLink` nodes carry `target`, `heading`, `label` and `embed`.
 ```
 
 When writing markdown, `remarkBlockDirectives` wraps the paragraph handler so text that looks like a directive stays text. Register any plugin with its own paragraph handler *before* it, so the guard wraps that handler instead of being replaced.
+
+## Wiki links
+
+`[[Page]]`, `[[Page#Heading]]`, `[[Page|label]]` and `![[Page]]` are links between documents. The markdown keeps exactly what the author typed; where a link points is up to you:
+
+```tsx
+<MarkdownEditor
+  value={md}
+  onChange={setMd}
+  wikiLinks={{
+    resolve: async ({ target, heading }) => {
+      const page = await pages.find(target);
+      return page
+        ? { exists: true, href: `/docs/${page.id}${heading ? `#${heading}` : ""}`, title: page.title }
+        : { exists: false };
+    },
+    search: (query) => pages.search(query).map((page) => ({ target: page.title, description: page.space })),
+    onOpen: (link, resolution) => router.push(resolution?.href ?? `/new?title=${link.target}`),
+  }}
+/>
+```
+
+- `resolve` gets `{ target, heading, label, embed }` and returns `{ exists, href?, title? }`, sync or async. Each distinct target and heading is resolved once while the function stays the same, so pass a stable function. A link to a page that doesn't exist is shown as missing.
+- `search` feeds a suggestion menu that opens when you type `[[`. Arrow keys move through it, Enter or Tab inserts the page, Escape closes it.
+- Typing the closing `]]` of `[[…]]` also makes a link.
+- Clicking opens a link in a read-only document; while editing, Cmd/Ctrl-click opens it. `onOpen` handles opening; without it, the browser follows `href`.
+- Everything is optional and reactive. With no `wikiLinks`, links still parse, render and round-trip.
+
+Parsing is exact: `[[a#b|c]]` reads as target `a`, heading `b`, label `c` (split at the first `|`, then the first `#`) and writes back unchanged. `[[a]](url)` and `[[a]][ref]` stay ordinary links, and `\[\[a]]` stays text. `remarkWikiLinks` from `blintz/markdown` is the same grammar for servers.
 
 ## Why Blintz
 
@@ -119,6 +149,7 @@ It works at the seam Milkdown itself draws. The engine is framework-agnostic: Pr
 - Images: uploader or URL input, with captions.
 - Tables: GFM tables with column and row drag handles, plus a keyboard and touch menu to add, move or delete rows and columns.
 - Links: hover preview and an inline edit tooltip.
+- Wiki links: `[[Page#Heading|label]]` with host resolution and a `[[` suggestion menu (see [Wiki links](#wiki-links)).
 - Embeds: block directives (`::chart{…}`, `:::callout … :::`) rendered by your own React components (see [Embeds](#embeds)).
 - A selection toolbar (bold, italic, strikethrough, code, link), a block placeholder, a virtual cursor, and dark mode.
 

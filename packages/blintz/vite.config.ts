@@ -20,9 +20,13 @@ export default defineConfig({
   ],
   build: {
     lib: {
-      // `directives` is the editor-free grammar entry (`blintz/directives`):
-      // no React, no ProseMirror, no CSS.
-      entry: { index: "src/index.ts", directives: "src/directives.ts" },
+      // `markdown` (all grammars) and `directives` (embeds only) are the
+      // editor-free entries: no React, no ProseMirror, no CSS.
+      entry: {
+        index: "src/index.ts",
+        directives: "src/directives.ts",
+        markdown: "src/markdown.ts",
+      },
       formats: ["es"],
       fileName: (_format, name) => `${name}.js`,
       cssFileName: "blintz",

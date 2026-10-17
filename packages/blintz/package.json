@@ -30,6 +30,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./markdown": {
+      "types": "./dist/markdown.d.ts",
+      "import": "./dist/markdown.js"
+    },
     "./directives": {
       "types": "./dist/directives.d.ts",
       "import": "./dist/directives.js"
@@ -78,6 +82,7 @@
     "mdast-util-to-markdown": "^2.2.0",
     "mdast-util-to-string": "^4.0.0",
     "micromark-extension-directive": "^4.0.0",
+    "micromark-util-types": "^2.0.3",
     "prosemirror-virtual-cursor": "^0.4.2",
     "remark-frontmatter": "^5.0.0",
     "remark-math": "^6.0.0",

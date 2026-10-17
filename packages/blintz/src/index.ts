@@ -26,6 +26,14 @@ export {
   remarkBlockDirectives,
   validateEmbedAttributes,
 } from "./directives";
+// Wiki links: `[[target#heading|label]]` resolved and suggested by the host.
+export type {
+  WikiLinkOptions,
+  WikiLinkResolution,
+  WikiLinkSuggestion,
+} from "./features/wiki-links/options";
+export { remarkWikiLinks } from "./markdown";
+export type { WikiLink } from "./markdown";
 export type {
   EmbedAttributes,
   EmbedIssue,
