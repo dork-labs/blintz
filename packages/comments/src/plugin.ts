@@ -232,12 +232,13 @@ function mapThrough(previous: CommentsState, tr: Transaction, display: CommentsD
     }
     if (!exact) {
       // A collaborator's change too big to diff collapsed the range whether
-      // or not its words survived: find them again by their current context,
-      // with at least half of it, so a rewrite never grabs other words.
+      // or not its words survived: find them again only with all of their
+      // current context, so deleted words never land on the same words in
+      // another sentence.
       const fresh = anchorFromRange(tr.before, range.from, range.to);
       model ??= docText(tr.doc);
       const found = fresh ? locateDetailed(tr.doc, fresh, model) : null;
-      if (found && enoughContext(found, "missing")) {
+      if (found && enoughContext(found, "deleted")) {
         ranges.set(id, found);
         continue;
       }
@@ -252,6 +253,8 @@ function mapThrough(previous: CommentsState, tr: Transaction, display: CommentsD
   }
   // Orphans get another chance on every change: anywhere their anchor fits
   // after a host reset; during editing only with enough of their context.
+  // A deleted thread comes back at its deletion point, or, after a change
+  // too big to diff (which loses that point), wherever all its context is.
   for (const [id, kind] of previous.orphaned) {
     const candidates = [deletedAnchors.get(id), lastAnchors.get(id)].filter(
       (anchor): anchor is CommentAnchor => anchor !== undefined,
@@ -259,7 +262,7 @@ function mapThrough(previous: CommentsState, tr: Transaction, display: CommentsD
     model ??= docText(tr.doc);
     for (const anchor of candidates) {
       const found =
-        kind === "deleted" && !reset
+        kind === "deleted" && !reset && exact
           ? restoredAt(model, anchor, deletedAt.get(id))
           : locateDetailed(tr.doc, anchor, model);
       if (found && (reset || enoughContext(found, kind))) {

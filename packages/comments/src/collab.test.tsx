@@ -226,3 +226,66 @@ it("keeps a thread through an agent write too big to diff word by word", async (
   await waitFor(() => host!.textContent!.includes("Line 0 beta"), 10000);
   expect(host.querySelector('[data-comment-id="t"]')?.textContent).toBe("Friday");
 }, 30000);
+
+/** An editor on a shared doc seeded with `seed`, and a thread on the first `word` in it. */
+async function mountWithThread(seed: string, word: string) {
+  const model = await createMarkdownModel();
+  const server = new Y.Doc();
+  applyMarkdownToYDoc(model, server, seed);
+  const mine = new Y.Doc();
+  Y.applyUpdate(mine, Y.encodeStateAsUpdate(server));
+  server.on("update", (update: Uint8Array, origin: unknown) => origin !== "net" && Y.applyUpdate(mine, update, "net"));
+  let editor: Editor | null = null;
+  let api: BlintzComments | null = null;
+  const capture = Object.assign(({ editor: e }: { editor: Editor }) => void (editor = e), { preservesSourceMapping: true });
+  const collab = collaboration({ fragment: mine.getXmlFragment("prosemirror") });
+  function Harness({ threads }: { threads: CommentThreadRef[] }) {
+    api = useBlintzComments({ threads });
+    return <MarkdownEditor value="" plugins={[collab, api.plugin, capture]} />;
+  }
+  host = document.createElement("div");
+  document.body.append(host);
+  root = createRoot(host);
+  await act(async () => root!.render(<Harness threads={[]} />));
+  await waitFor(() => !!editor && host!.textContent!.includes(word));
+  const view = (): EditorView => (editor as Editor).action((ctx) => ctx.get(editorViewCtx));
+  const text = docText(view().state.doc);
+  const at = text.text.indexOf(word);
+  view().dispatch(
+    view().state.tr.setSelection(
+      TextSelection.create(view().state.doc, positionAt(text, at, "start")!, positionAt(text, at + word.length, "end")!),
+    ),
+  );
+  const anchor = api!.anchorSelection()!;
+  await act(async () => root!.render(<Harness threads={[{ id: "t", anchor }]} />));
+  await waitFor(() => host!.querySelector('[data-comment-id="t"]')?.textContent === word);
+  return { model, server, view, api: () => api! };
+}
+
+const bigDoc = (word: string, middle: string, tail = "") => {
+  const all = Array.from({ length: 700 }, (_, i) => `Line ${i} ${word}.`);
+  all.splice(350, 0, middle);
+  if (tail) all.push(tail);
+  return `${all.join("\n\n")}\n`;
+};
+
+it("never moves deleted words to the same words elsewhere after a write too big to diff", async () => {
+  const other = "Ship it on Friday, after the final review is done.";
+  const middle = "We agreed that the launch is on Friday, after the final review is done.";
+  const { model, server, api } = await mountWithThread(bigDoc("alpha", middle, other), "Friday");
+  await act(async () =>
+    applyMarkdownToYDoc(model, server, bigDoc("beta", "We agreed that the launch is on , after the final review is done.", other)),
+  );
+  await waitFor(() => host!.textContent!.includes("Line 0 beta"), 10000);
+  expect(api().rangeOf("t")).toBeNull();
+}, 30000);
+
+it("restores a thread when a write too big to diff is reverted", async () => {
+  const middle = "We agreed that the launch is on Friday, after the final review is done.";
+  const { model, server, api } = await mountWithThread(bigDoc("alpha", middle), "Friday");
+  const removed = bigDoc("beta", "We agreed that the launch is on , after the final review is done.");
+  await act(async () => applyMarkdownToYDoc(model, server, removed));
+  await waitFor(() => api().rangeOf("t") === null, 10000);
+  await act(async () => applyMarkdownToYDoc(model, server, bigDoc("alpha", middle)));
+  await waitFor(() => host!.querySelector('[data-comment-id="t"]')?.textContent === "Friday", 10000);
+}, 30000);
