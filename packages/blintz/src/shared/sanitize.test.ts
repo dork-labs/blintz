@@ -26,8 +26,10 @@ describe("sanitize", () => {
   });
 
   it("drops javascript: hrefs", () => {
-    const root = parse('<a href="javascript:alert(1)">x</a>');
-    expect(root.querySelector("a")?.getAttribute("href") ?? null).toBeNull();
+    const a = parse('<a href="javascript:alert(1)">x</a>').querySelector("a");
+    expect(a).not.toBeNull();
+    expect(a!.hasAttribute("href")).toBe(false);
+    expect(a!.textContent).toBe("x");
   });
 
   it("keeps a plain link", () => {
@@ -49,8 +51,9 @@ describe("sanitize", () => {
   it("strips scripts and handlers inside SVG", () => {
     const root = parse('<svg onload="alert(1)"><script>alert(2)</script><path d="M0 0"/></svg>');
     const svg = root.querySelector("svg");
-    expect(svg?.hasAttribute("onload")).toBe(false);
+    expect(svg).not.toBeNull();
+    expect(svg!.hasAttribute("onload")).toBe(false);
     expect(root.querySelector("script")).toBeNull();
-    expect(svg?.querySelector("path")).not.toBeNull();
+    expect(svg!.querySelector("path")).not.toBeNull();
   });
 });
