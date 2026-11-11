@@ -83,7 +83,7 @@
     "@types/mdast": "^4.0.4",
     "codemirror": "^6.0.2",
     "dompurify": "^3.4.17",
-    "katex": "^0.17.0",
+    "katex": "^0.18.10",
     "lucide-static": "^1.21.0",
     "mdast-util-directive": "^3.1.1",
     "mdast-util-from-markdown": "^2.1.0",
